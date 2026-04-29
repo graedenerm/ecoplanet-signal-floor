@@ -1318,6 +1318,34 @@ dialog::backdrop {
   margin-bottom: 0;
 }
 
+.auth-message {
+  display: none;
+  padding: 11px 12px;
+  border-radius: 8px;
+  border: 1px solid #c9d0ff;
+  background: #f4f6ff;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.auth-message.show {
+  display: block;
+}
+
+.auth-message.error {
+  border-color: #efbbb4;
+  background: #fff0ee;
+  color: var(--bad);
+}
+
+.auth-message.success {
+  border-color: #b8dfd0;
+  background: #edf9f4;
+  color: var(--good);
+}
+
 label {
   display: grid;
   gap: 7px;
@@ -1432,6 +1460,7 @@ label {
   position: fixed;
   right: 22px;
   bottom: 22px;
+  z-index: 2147483647;
   max-width: 360px;
   padding: 12px 14px;
   border-radius: 8px;

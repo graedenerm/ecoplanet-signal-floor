@@ -30,6 +30,12 @@ For username/password accounts:
 
 The app turns a username like `rumor_queen` into an internal auth email like `rumor_queen@signalfloor.local`. Users never need to see or type the email.
 
+If signup shows a message but no row appears in `public.profiles`, check this first:
+
+- Authentication -> Providers -> Email -> **Confirm email** must be off for the Live Beta.
+- If you tried signing up before disabling confirmation, delete that half-created test user in Authentication -> Users, then create it again.
+- A profile row is created only after the browser receives an active Supabase session.
+
 ## Vercel Environment
 
 Add these variables in Vercel Project Settings -> Environment Variables:

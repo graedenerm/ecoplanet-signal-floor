@@ -396,8 +396,8 @@
           <button type="button" data-auth-mode="signup">Create account</button>
         </div>
         <label>
-          Username
-          <input id="authUsernameInput" autocomplete="username" required placeholder="e.g. rumor_queen" />
+          Username or email
+          <input id="authUsernameInput" autocomplete="username" required placeholder="e.g. rumor_queen or you@company.com" />
         </label>
         <label class="signup-only">
           Display name
@@ -411,6 +411,7 @@
         <p class="muted auth-note">
           Usernames and avatars are visible in the game. Login details stay inside Supabase Auth.
         </p>
+        <div class="auth-message" id="authMessage" role="status" aria-live="polite"></div>
         <div class="dialog-actions">
           <button type="button" data-close-dialog="authDialog" class="ghost">Cancel</button>
           <button type="button" id="saveAuthBtn" class="primary">Log in</button>

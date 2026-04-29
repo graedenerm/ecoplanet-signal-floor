@@ -767,6 +767,31 @@ function usernameToEmail(username) {
   return `${normalizeUsername(username)}@${AUTH_EMAIL_DOMAIN}`;
 }
 
+function isValidEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function parseAuthIdentity(value) {
+  const raw = value.trim();
+  const lower = raw.toLowerCase();
+  if (lower.includes("@")) {
+    if (!isValidEmail(lower)) throw new Error("Enter a valid email address, or use a simple username.");
+    return {
+      email: lower,
+      username: normalizeUsername(lower.split("@")[0]) || "signal",
+      usesEmail: true,
+    };
+  }
+
+  const username = normalizeUsername(raw);
+  if (username.length < 3) throw new Error("Pick a username with at least 3 characters.");
+  return {
+    email: usernameToEmail(username),
+    username,
+    usesEmail: false,
+  };
+}
+
 function profileAvatar(user) {
   return user?.avatar || "?";
 }
@@ -1949,6 +1974,20 @@ function toast(message) {
   toastEl.timer = window.setTimeout(() => toastEl.classList.remove("show"), 2600);
 }
 
+function setAuthMessage(message, type = "info") {
+  const messageEl = $("#authMessage");
+  if (!messageEl) return;
+  messageEl.textContent = message;
+  messageEl.className = `auth-message show ${type}`;
+}
+
+function clearAuthMessage() {
+  const messageEl = $("#authMessage");
+  if (!messageEl) return;
+  messageEl.textContent = "";
+  messageEl.className = "auth-message";
+}
+
 function bindEvents() {
   $$(".tab").forEach((tab) => {
     tab.addEventListener("click", () => {
@@ -2145,6 +2184,7 @@ function closeDialog(id) {
 
 function renderAuthDialog() {
   const isSignup = authMode === "signup";
+  clearAuthMessage();
   $("#authDialogTitle").textContent = isSignup ? "Create account" : "Log in";
   $("#saveAuthBtn").textContent = isSignup ? "Create account" : "Log in";
   $$("[data-auth-mode]").forEach((button) => button.classList.toggle("active", button.dataset.authMode === authMode));
@@ -2174,23 +2214,38 @@ async function completeSupabaseProfile(displayName, avatar) {
 }
 
 async function handleAuthSubmit() {
+  clearAuthMessage();
   if (!supabaseClient && window.supabase?.createClient) {
     supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
   }
-  if (!supabaseClient) return toast("Supabase client is not available.");
+  if (!supabaseClient) {
+    setAuthMessage("Supabase client is not available. Check that the Supabase script loaded.", "error");
+    return;
+  }
 
-  const username = normalizeUsername($("#authUsernameInput").value);
+  let identity;
+  try {
+    identity = parseAuthIdentity($("#authUsernameInput").value);
+  } catch (error) {
+    setAuthMessage(error.message, "error");
+    return;
+  }
+
   const password = $("#authPasswordInput").value;
-  const displayName = ($("#authDisplayNameInput").value.trim() || username || "Signal Desk").slice(0, 40);
+  const displayName = ($("#authDisplayNameInput").value.trim() || identity.username || "Signal Desk").slice(0, 40);
 
-  if (username.length < 3) return toast("Pick a username with at least 3 characters.");
-  if (password.length < 6) return toast("Password needs at least 6 characters.");
+  if (password.length < 6) {
+    setAuthMessage("Password needs at least 6 characters.", "error");
+    return;
+  }
 
-  const email = usernameToEmail(username);
+  const email = identity.email;
   setConnectionStatus("demo", authMode === "signup" ? "Creating..." : "Logging in...");
+  $("#saveAuthBtn").disabled = true;
 
   try {
     if (authMode === "signup") {
+      setAuthMessage(`Creating account for ${identity.usesEmail ? email : identity.username}...`);
       const { data, error } = await supabaseClient.auth.signUp({
         email,
         password,
@@ -2198,19 +2253,29 @@ async function handleAuthSubmit() {
       });
       if (error) throw error;
 
+      if (data.user?.identities && data.user.identities.length === 0) {
+        throw new Error("This account already exists. Switch to Log in and use the same username/password.");
+      }
+
       if (!data.session) {
         const { error: signInError } = await supabaseClient.auth.signInWithPassword({ email, password });
         if (signInError) {
           setConnectionStatus("error", "Confirm email");
-          toast("Account created, but email confirmation is still enabled in Supabase. Disable confirmations for the demo.");
+          setAuthMessage(
+            "Supabase created the auth user but did not return a session. In Supabase, disable Authentication -> Providers -> Email -> Confirm email for this Live Beta, then try again. No profile row can be created until the user has a session.",
+            "error"
+          );
           return;
         }
       }
       await completeSupabaseProfile(displayName, selectedAvatar);
+      setAuthMessage(`Account ready. Welcome to the floor, ${displayName}.`, "success");
       toast(`Welcome to the floor, ${displayName}.`);
     } else {
+      setAuthMessage(`Logging in as ${identity.usesEmail ? email : identity.username}...`);
       const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
       if (error) throw error;
+      setAuthMessage("Logged in. Loading the floor...", "success");
       toast("Logged in.");
     }
 
@@ -2218,7 +2283,9 @@ async function handleAuthSubmit() {
     await bootstrapSupabase();
   } catch (error) {
     setConnectionStatus("error", "Auth failed");
-    toast(error.message || "Could not log in.");
+    setAuthMessage(error.message || "Could not log in.", "error");
+  } finally {
+    $("#saveAuthBtn").disabled = false;
   }
 }
 
