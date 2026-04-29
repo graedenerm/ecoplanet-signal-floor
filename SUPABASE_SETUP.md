@@ -26,16 +26,24 @@ For username/password accounts:
 1. Go to Authentication.
 2. Open Providers, then Email.
 3. Enable Email provider.
-4. Disable Confirm email for the prototype so new users can log in immediately.
+4. The app's `/api/signup` endpoint creates users as already-confirmed, so employees only see username/password.
 
-The app turns a username like `rumor_queen` into an internal auth email like `rumor_queen@signalfloor.local`. Users never need to see or type the email.
+The app turns a username like `rumor_queen` into an internal auth email like `rumor_queen@signalfloor.local`. Users never see or type the email.
+
+The Vercel signup endpoint requires the Supabase service-role key as a **server-only** environment variable:
+
+```txt
+SIGNAL_FLOOR_SUPABASE_SERVICE_ROLE_KEY=<service role key>
+```
+
+Do not expose this key in `config.js`, browser code, or any variable prefixed for public frontend use.
 
 If signup shows a message but no row appears in `public.profiles`, check this first:
 
-- Authentication -> Providers -> Email -> **Confirm email** must be off for the Live Beta.
-- `email rate limit exceeded` means Supabase is trying to send confirmation emails; disable Confirm email and wait for the rate limit to cool down if needed.
-- If you tried signing up before disabling confirmation, delete that half-created test user in Authentication -> Users, then create it again.
-- A profile row is created only after the browser receives an active Supabase session.
+- Vercel has `SIGNAL_FLOOR_SUPABASE_SERVICE_ROLE_KEY` set for Production, Preview, and Development.
+- The app has redeployed after adding that environment variable.
+- `supabase-repair.sql` has been run, so `create_profile_for_current_user` and `update_my_profile` exist.
+- If you created broken test users during the earlier email-confirmation setup, delete those users in Authentication -> Users and create them again.
 
 ## Vercel Environment
 
@@ -45,6 +53,7 @@ Add these variables in Vercel Project Settings -> Environment Variables:
 SIGNAL_FLOOR_MODE=live
 SIGNAL_FLOOR_SUPABASE_URL=https://dzvhpswsykgatbofaqzi.supabase.co
 SIGNAL_FLOOR_SUPABASE_PUBLISHABLE_KEY=<publishable key>
+SIGNAL_FLOOR_SUPABASE_SERVICE_ROLE_KEY=<service role key>
 SIGNAL_FLOOR_AUTH_EMAIL_DOMAIN=signalfloor.local
 ```
 

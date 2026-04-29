@@ -14,6 +14,7 @@ Signal Floor is a lightweight static frontend deployed as plain HTML/CSS/JavaScr
 Backend:
 
 - Supabase Auth for username/password accounts
+- Vercel `/api/signup` endpoint for username-only account creation
 - Supabase Postgres for profiles, markets, market history, positions, trades, ledger, suggestions
 - Supabase RPCs for profile setup, trading, resolution, leaderboard, and slot rewards
 - Row Level Security enabled on app tables
@@ -43,13 +44,14 @@ Dashboard settings:
 - Automatically expose new tables and functions: off
 - Enable automatic RLS: on
 - Authentication -> Providers -> Email: on
-- Authentication -> Providers -> Email -> Confirm email: off for Live Beta speed
+- `/api/signup` uses the server-only service-role key to create users as already-confirmed
 
 Username handling:
 
 - Users type a username.
 - App converts it to an internal email: `<username>@signalfloor.local`.
 - Users only see username/display name/avatar in the UI.
+- Employees do not type email addresses.
 
 ## SQL Files And Run Order
 
@@ -103,6 +105,7 @@ Output Directory: .
 SIGNAL_FLOOR_MODE=live
 SIGNAL_FLOOR_SUPABASE_URL=https://dzvhpswsykgatbofaqzi.supabase.co
 SIGNAL_FLOOR_SUPABASE_PUBLISHABLE_KEY=<publishable key>
+SIGNAL_FLOOR_SUPABASE_SERVICE_ROLE_KEY=<server-only service role key>
 SIGNAL_FLOOR_AUTH_EMAIL_DOMAIN=signalfloor.local
 ```
 
@@ -118,6 +121,8 @@ where display_name = '<your display name>';
 ```
 
 10. Add the Vercel production URL to Supabase Auth allowed redirect/site URLs if you later add password reset or OAuth.
+
+The service-role key must stay server-only in Vercel. It must never be placed in `config.js`, committed to GitHub, or exposed through a public frontend environment variable.
 
 ## GitHub Repo Setup
 
@@ -151,6 +156,7 @@ Current posture:
 - Trades run through `place_trade()`.
 - Market resolution runs through `resolve_market()` and checks `current_user_is_admin()`.
 - Slot rewards run through `claim_slot_reward()` so the server decides the reward.
+- Username signup runs through `/api/signup`; the service-role key is only available server-side.
 
 Remaining hardening before a wider rollout:
 

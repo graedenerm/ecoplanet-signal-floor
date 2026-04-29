@@ -767,20 +767,10 @@ function usernameToEmail(username) {
   return `${normalizeUsername(username)}@${AUTH_EMAIL_DOMAIN}`;
 }
 
-function isValidEmail(value) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-}
-
 function parseAuthIdentity(value) {
   const raw = value.trim();
-  const lower = raw.toLowerCase();
-  if (lower.includes("@")) {
-    if (!isValidEmail(lower)) throw new Error("Enter a valid email address, or use a simple username.");
-    return {
-      email: lower,
-      username: normalizeUsername(lower.split("@")[0]) || "signal",
-      usesEmail: true,
-    };
+  if (raw.includes("@")) {
+    throw new Error("Use a simple username only. No email needed here.");
   }
 
   const username = normalizeUsername(raw);
@@ -788,7 +778,6 @@ function parseAuthIdentity(value) {
   return {
     email: usernameToEmail(username),
     username,
-    usesEmail: false,
   };
 }
 
@@ -2215,6 +2204,9 @@ async function completeSupabaseProfile(displayName, avatar) {
 
 function readableAuthError(error) {
   const raw = `${error?.error_code || ""} ${error?.code || ""} ${error?.message || ""}`.toLowerCase();
+  if (raw.includes("signup endpoint is missing")) {
+    return "The username signup endpoint is missing the server-only Supabase service role key. Add SIGNAL_FLOOR_SUPABASE_SERVICE_ROLE_KEY in Vercel, redeploy, and try again.";
+  }
   if (raw.includes("over_email_send_rate_limit") || raw.includes("email rate limit")) {
     return "Supabase is trying to send confirmation emails and has hit the email rate limit. Go to Supabase -> Authentication -> Providers -> Email and turn OFF Confirm email for this Live Beta. Then delete this half-created test user in Authentication -> Users and try again.";
   }
@@ -2222,7 +2214,7 @@ function readableAuthError(error) {
     return "Supabase is waiting for email confirmation, so the app cannot create the game profile yet. Turn OFF Authentication -> Providers -> Email -> Confirm email for the Live Beta, then try again.";
   }
   if (raw.includes("invalid login credentials")) {
-    return "Wrong username/email or password. If you just created this account while email confirmation was on, delete the test user in Supabase and create it again after disabling Confirm email.";
+    return "Wrong username or password. If you created this username during the earlier broken signup flow, delete that test user in Supabase Authentication -> Users and create it again.";
   }
   if (raw.includes("create_profile_for_current_user") || raw.includes("update_my_profile") || raw.includes("schema cache")) {
     return "The login worked, but Supabase is missing the latest profile RPC. Run supabase-repair.sql again in the Supabase SQL Editor, then reload and try again.";
@@ -2231,6 +2223,21 @@ function readableAuthError(error) {
     return "This account already exists. Switch to Log in and use the same username/password, or delete the test user in Supabase Authentication -> Users and create it again.";
   }
   return error?.message || "Could not log in.";
+}
+
+async function createUsernameAccount({ username, password, displayName, avatar }) {
+  if (!["http:", "https:"].includes(window.location.protocol)) {
+    throw new Error("Username signup needs the Vercel app URL so the secure signup endpoint can run. Use the deployed URL, or run through a local web server.");
+  }
+
+  const response = await fetch("/api/signup", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password, displayName, avatar }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || "Could not create account.");
+  return result;
 }
 
 async function handleAuthSubmit() {
@@ -2265,34 +2272,20 @@ async function handleAuthSubmit() {
 
   try {
     if (authMode === "signup") {
-      setAuthMessage(`Creating account for ${identity.usesEmail ? email : identity.username}...`);
-      const { data, error } = await supabaseClient.auth.signUp({
-        email,
+      setAuthMessage(`Creating account for ${identity.username}...`);
+      await createUsernameAccount({
+        username: identity.username,
         password,
-        options: { data: { display_name: displayName, avatar_seed: selectedAvatar } },
+        displayName,
+        avatar: selectedAvatar,
       });
-      if (error) throw error;
-
-      if (data.user?.identities && data.user.identities.length === 0) {
-        throw new Error("This account already exists. Switch to Log in and use the same username/password.");
-      }
-
-      if (!data.session) {
-        const { error: signInError } = await supabaseClient.auth.signInWithPassword({ email, password });
-        if (signInError) {
-          setConnectionStatus("error", "Confirm email");
-          setAuthMessage(
-            readableAuthError(signInError),
-            "error"
-          );
-          return;
-        }
-      }
+      const { error: signInError } = await supabaseClient.auth.signInWithPassword({ email, password });
+      if (signInError) throw signInError;
       await completeSupabaseProfile(displayName, selectedAvatar);
       setAuthMessage(`Account ready. Welcome to the floor, ${displayName}.`, "success");
       toast(`Welcome to the floor, ${displayName}.`);
     } else {
-      setAuthMessage(`Logging in as ${identity.usesEmail ? email : identity.username}...`);
+      setAuthMessage(`Logging in as ${identity.username}...`);
       const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
       if (error) throw error;
       setAuthMessage("Logged in. Loading the floor...", "success");

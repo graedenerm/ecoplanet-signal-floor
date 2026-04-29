@@ -6,6 +6,7 @@ This repo is now shaped for **Live Beta v1**:
 
 - Static frontend deployable on Vercel
 - Supabase Auth username/password accounts
+- Server-side username signup endpoint for already-confirmed Supabase Auth users
 - Supabase Postgres tables, RLS policies, and RPCs
 - Admin-only resolution queue and user desk list
 - Public play-money leaderboard via a controlled RPC
@@ -31,8 +32,11 @@ Required environment variables:
 SIGNAL_FLOOR_MODE=live
 SIGNAL_FLOOR_SUPABASE_URL=https://dzvhpswsykgatbofaqzi.supabase.co
 SIGNAL_FLOOR_SUPABASE_PUBLISHABLE_KEY=<your publishable key>
+SIGNAL_FLOOR_SUPABASE_SERVICE_ROLE_KEY=<server-only service role key>
 SIGNAL_FLOOR_AUTH_EMAIL_DOMAIN=signalfloor.local
 ```
+
+`SIGNAL_FLOOR_SUPABASE_SERVICE_ROLE_KEY` must be added as a Vercel server environment variable only. It is used by `/api/signup` to create username/password users without email confirmation.
 
 Build command:
 
