@@ -33,6 +33,7 @@ The app turns a username like `rumor_queen` into an internal auth email like `ru
 If signup shows a message but no row appears in `public.profiles`, check this first:
 
 - Authentication -> Providers -> Email -> **Confirm email** must be off for the Live Beta.
+- `email rate limit exceeded` means Supabase is trying to send confirmation emails; disable Confirm email and wait for the rate limit to cool down if needed.
 - If you tried signing up before disabling confirmation, delete that half-created test user in Authentication -> Users, then create it again.
 - A profile row is created only after the browser receives an active Supabase session.
 

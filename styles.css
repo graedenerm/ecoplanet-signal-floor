@@ -1320,6 +1320,9 @@ dialog::backdrop {
 
 .auth-message {
   display: none;
+  position: sticky;
+  top: 0;
+  z-index: 2;
   padding: 11px 12px;
   border-radius: 8px;
   border: 1px solid #c9d0ff;

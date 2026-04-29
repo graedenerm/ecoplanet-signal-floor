@@ -2213,6 +2213,26 @@ async function completeSupabaseProfile(displayName, avatar) {
   if (avatarError) throw avatarError;
 }
 
+function readableAuthError(error) {
+  const raw = `${error?.error_code || ""} ${error?.code || ""} ${error?.message || ""}`.toLowerCase();
+  if (raw.includes("over_email_send_rate_limit") || raw.includes("email rate limit")) {
+    return "Supabase is trying to send confirmation emails and has hit the email rate limit. Go to Supabase -> Authentication -> Providers -> Email and turn OFF Confirm email for this Live Beta. Then delete this half-created test user in Authentication -> Users and try again.";
+  }
+  if (raw.includes("confirm") || raw.includes("confirmation")) {
+    return "Supabase is waiting for email confirmation, so the app cannot create the game profile yet. Turn OFF Authentication -> Providers -> Email -> Confirm email for the Live Beta, then try again.";
+  }
+  if (raw.includes("invalid login credentials")) {
+    return "Wrong username/email or password. If you just created this account while email confirmation was on, delete the test user in Supabase and create it again after disabling Confirm email.";
+  }
+  if (raw.includes("create_profile_for_current_user") || raw.includes("update_my_profile") || raw.includes("schema cache")) {
+    return "The login worked, but Supabase is missing the latest profile RPC. Run supabase-repair.sql again in the Supabase SQL Editor, then reload and try again.";
+  }
+  if (raw.includes("already") || raw.includes("registered")) {
+    return "This account already exists. Switch to Log in and use the same username/password, or delete the test user in Supabase Authentication -> Users and create it again.";
+  }
+  return error?.message || "Could not log in.";
+}
+
 async function handleAuthSubmit() {
   clearAuthMessage();
   if (!supabaseClient && window.supabase?.createClient) {
@@ -2262,7 +2282,7 @@ async function handleAuthSubmit() {
         if (signInError) {
           setConnectionStatus("error", "Confirm email");
           setAuthMessage(
-            "Supabase created the auth user but did not return a session. In Supabase, disable Authentication -> Providers -> Email -> Confirm email for this Live Beta, then try again. No profile row can be created until the user has a session.",
+            readableAuthError(signInError),
             "error"
           );
           return;
@@ -2283,7 +2303,7 @@ async function handleAuthSubmit() {
     await bootstrapSupabase();
   } catch (error) {
     setConnectionStatus("error", "Auth failed");
-    setAuthMessage(error.message || "Could not log in.", "error");
+    setAuthMessage(readableAuthError(error), "error");
   } finally {
     $("#saveAuthBtn").disabled = false;
   }
