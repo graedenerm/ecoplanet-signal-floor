@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  static-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm run build
+        env:
+          SIGNAL_FLOOR_MODE: live
+          SIGNAL_FLOOR_SUPABASE_URL: https://dzvhpswsykgatbofaqzi.supabase.co
+          SIGNAL_FLOOR_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+      - run: npm run check

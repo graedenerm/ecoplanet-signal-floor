@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Signal Floor</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body data-active-view="overview">
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">ecoplanet internal</p>
+          <h1>Signal Floor</h1>
+        </div>
+        <div class="user-strip">
+          <div class="connection-pill" id="connectionPill">Demo mode</div>
+          <div class="avatar-badge" id="currentUserAvatar" aria-hidden="true">?</div>
+          <div class="identity">
+            <span id="currentUserName">Joining...</span>
+            <small id="currentUserMeta"></small>
+          </div>
+          <button class="ghost" id="openAuthBtn">Account</button>
+          <button class="ghost hidden" id="signOutBtn">Sign out</button>
+          <button class="ghost" id="newPersonaBtn" title="Create another anonymous profile">New persona</button>
+          <button class="primary" id="openCreateBtn">Create market</button>
+        </div>
+      </header>
+
+      <main class="layout">
+        <aside class="sidebar">
+          <section class="panel wallet-panel">
+            <p class="panel-label">Your book</p>
+            <div class="big-number" id="walletBalance">0</div>
+            <div class="muted">credits available</div>
+            <div class="mini-grid">
+              <div>
+                <strong id="portfolioValue">0</strong>
+                <span>portfolio</span>
+              </div>
+              <div>
+                <strong id="edgeScore">0</strong>
+                <span>edge score</span>
+              </div>
+            </div>
+            <button id="airdropBtn" class="full">Weekly token drop</button>
+          </section>
+
+          <section class="panel spark-panel">
+            <div class="panel-header">
+              <p class="panel-label">Daily spark</p>
+              <span class="streak-pill" id="streakPill">0 day</span>
+            </div>
+            <div class="level-card">
+              <div>
+                <span class="muted">Level</span>
+                <strong id="levelLabel">1</strong>
+              </div>
+              <div class="xp-track"><span id="xpFill"></span></div>
+              <small id="xpLabel">0 / 120 XP</small>
+            </div>
+            <div class="missions" id="missionList"></div>
+            <button id="claimMissionsBtn" class="full secondary">Claim rewards</button>
+          </section>
+
+          <section class="panel">
+            <p class="panel-label">Badges</p>
+            <div id="badgeList" class="badge-list"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <p class="panel-label">Alpha board</p>
+              <button class="icon-button" id="seedBtn" title="Reset demo data">Reset</button>
+            </div>
+            <ol class="leaderboard" id="leaderboard"></ol>
+          </section>
+
+          <section class="panel persona-panel">
+            <p class="panel-label">Personas</p>
+            <div id="personaList" class="persona-list"></div>
+          </section>
+        </aside>
+
+        <section class="content">
+          <nav class="tabs" aria-label="Views">
+            <button class="tab active" data-view="overview">Start</button>
+            <button class="tab" data-view="tutorial">Tutorial & FAQ</button>
+            <button class="tab" data-view="markets">Markets</button>
+            <button class="tab" data-view="suggestions">Suggestions</button>
+            <button class="tab" data-view="radar">Rumor radar</button>
+            <button class="tab" data-view="portfolio">Portfolio</button>
+            <button class="tab" data-view="admin">Admin</button>
+          </nav>
+
+          <section id="overviewView" class="view active">
+            <section class="intro-hero">
+              <div class="intro-copy">
+                <p class="eyebrow">Redefining rumors for tomorrow</p>
+                <h2>Make company guesses visible.</h2>
+                <p>
+                  Signal Floor is a private game for turning questions, rumors, and business hunches into visible probabilities.
+                  No real money. No public identities. Just a shared scoreboard for who reads the room well.
+                </p>
+                <div class="intro-actions">
+                  <button class="primary" id="startTutorialBtn">Learn the rules</button>
+                  <button class="ghost" id="startTradingBtn">See markets</button>
+                </div>
+              </div>
+              <div class="intro-metric">
+                <span>Current office consensus</span>
+                <strong id="overviewConsensus">58%</strong>
+                <small>YES probability on the hottest question</small>
+              </div>
+            </section>
+
+            <section class="start-strip">
+              <article>
+                <span class="step">01</span>
+                <h3>Play with credits</h3>
+                <p>Everyone gets fake money. Winning means reading the company better, not spending real euros.</p>
+              </article>
+              <article>
+                <span class="step">02</span>
+                <h3>Watch probabilities move</h3>
+                <p>When confidence changes, the chart changes. That is the signal hidden inside office rumors.</p>
+              </article>
+              <article>
+                <span class="step">03</span>
+                <h3>Climb the board</h3>
+                <p>The leaderboard rewards good judgment, timing, and a bit of nerve.</p>
+              </article>
+            </section>
+          </section>
+
+          <section id="tutorialView" class="view">
+            <section class="tutorial-hero">
+              <div>
+                <p class="eyebrow">Real noob mode</p>
+                <h2>Tutorial & FAQ</h2>
+                <p>
+                  This page explains Signal Floor slowly, with examples. You do not need to know betting, finance,
+                  trading, or probability math. If you can answer “do I think this will happen?”, you can play.
+                </p>
+              </div>
+              <button class="primary" id="tutorialCreateBtn">Create first bet</button>
+            </section>
+
+            <section class="tutorial-section">
+              <div class="section-title">
+                <p class="panel-label">The basic idea</p>
+                <h3>Every market is just a yes/no question.</h3>
+              </div>
+              <div class="visual-walkthrough">
+                <article class="visual-card">
+                  <div class="mock-market">
+                    <span class="tag">business</span>
+                    <strong>Will Sales hit the April ARR target?</strong>
+                    <div class="mock-prob">
+                      <span style="width: 64%"></span>
+                    </div>
+                    <small>64% YES</small>
+                  </div>
+                  <h4>Question</h4>
+                  <p>A good market asks something clear enough that everyone understands what YES means.</p>
+                </article>
+                <article class="visual-card">
+                  <div class="mock-choice">
+                    <button class="yes-btn">Buy YES</button>
+                    <button class="no-btn">Buy NO</button>
+                  </div>
+                  <h4>Your opinion</h4>
+                  <p>Buy YES if you think it will happen. Buy NO if you think it will not happen.</p>
+                </article>
+                <article class="visual-card">
+                  <div class="mock-chart">
+                    <span></span><span></span><span></span><span></span><span></span>
+                  </div>
+                  <h4>The signal</h4>
+                  <p>If people become more confident, the probability rises. If confidence fades, it falls.</p>
+                </article>
+              </div>
+            </section>
+
+            <section class="tutorial-section">
+              <div class="section-title">
+                <p class="panel-label">Example round</p>
+                <h3>How one bet plays out.</h3>
+              </div>
+              <div class="timeline">
+                <div>
+                  <span>1</span>
+                  <strong>A market is created</strong>
+                  <p>“Will we announce a new customer logo before the next all-hands?”</p>
+                </div>
+                <div>
+                  <span>2</span>
+                  <strong>You spend 100 credits on YES</strong>
+                  <p>The YES probability moves up slightly because your trade shows confidence.</p>
+                </div>
+                <div>
+                  <span>3</span>
+                  <strong>Other people react</strong>
+                  <p>Someone heard the opposite and buys NO. The probability drops. Now the rumor has a visible price.</p>
+                </div>
+                <div>
+                  <span>4</span>
+                  <strong>The market resolves</strong>
+                  <p>If the customer is announced, YES wins. If not, NO wins. Void means stakes are returned.</p>
+                </div>
+              </div>
+            </section>
+
+            <section class="tutorial-section">
+              <div class="section-title">
+                <p class="panel-label">Good bets</p>
+                <h3>Use this recipe.</h3>
+              </div>
+              <div class="bet-recipe">
+                <div>
+                  <strong>Specific outcome</strong>
+                  <span>ARR, sales, product, hiring, culture, office lore, customer wins.</span>
+                </div>
+                <div>
+                  <strong>Deadline</strong>
+                  <span>A concrete date keeps it exciting and resolvable.</span>
+                </div>
+                <div>
+                  <strong>Resolution source</strong>
+                  <span>All-hands, CRM, finance sheet, Slack announcement, founder statement, visible event.</span>
+                </div>
+                <div>
+                  <strong>Safe framing</strong>
+                  <span>No personal attacks, private HR topics, health, salary, or protected characteristics.</span>
+                </div>
+              </div>
+              <div class="example-split">
+                <div class="example-good">
+                  <span>Good</span>
+                  <strong>Will Sales reach the official April ARR target by April 30?</strong>
+                  <p>Clear outcome, clear deadline, clear resolution source.</p>
+                </div>
+                <div class="example-bad">
+                  <span>Too vague</span>
+                  <strong>Is Sales doing well?</strong>
+                  <p>No deadline, no single source, and people will argue about what “well” means.</p>
+                </div>
+              </div>
+            </section>
+
+            <section class="tutorial-section">
+              <div class="section-title">
+                <p class="panel-label">Starter bets</p>
+                <h3>Click one to launch it.</h3>
+              </div>
+              <div class="idea-list">
+                <button data-idea="Will Sales hit the next monthly ARR target?|YES if the official month-end ARR target is reached or exceeded.|business">Sales hits next monthly ARR target</button>
+                <button data-idea="Will we announce a new customer logo before the next all-hands?|YES if a new customer logo is shared in all-hands, Slack, or CRM before the next all-hands.|business">New customer logo before all-hands</button>
+                <button data-idea="Will a founder mention profitability in the next all-hands?|YES if a founder explicitly says profitability, break-even, runway, or cash discipline in the next all-hands.|rumor">Founder says profitability</button>
+                <button data-idea="Will we change the sales deck again this month?|YES if a new sales deck version is announced or shared before month-end.|fun">Sales deck changes again</button>
+              </div>
+            </section>
+
+            <section class="tutorial-section">
+              <div class="section-title">
+                <p class="panel-label">FAQ</p>
+                <h3>Common questions.</h3>
+              </div>
+              <div class="faq-list">
+                <details open>
+                  <summary>Is this real money?</summary>
+                  <p>No. The prototype uses credits only. Credits are for competition and learning, not deposits or cash-out.</p>
+                </details>
+                <details>
+                  <summary>Can founders see who I am?</summary>
+                  <p>The app is designed around pseudonymous names. In this prototype, identities are local browser personas, not public company identities.</p>
+                </details>
+                <details>
+                  <summary>Why does the probability change?</summary>
+                  <p>Because trades move the market. More YES buying pushes the YES probability up. More NO buying pushes it down.</p>
+                </details>
+                <details>
+                  <summary>What happens when a market ends?</summary>
+                  <p>The admin resolves it as YES, NO, or Void. Winning positions receive credits. Void returns stakes.</p>
+                </details>
+                <details>
+                  <summary>What should we avoid?</summary>
+                  <p>Keep sensitive markets admin-approved, clearly opt-in where needed, and focused on public company-context signals. No protected characteristics, health, salary, or personal attacks.</p>
+                </details>
+              </div>
+            </section>
+          </section>
+
+          <section id="marketsView" class="view">
+            <div class="toolbar">
+              <div class="search-wrap">
+                <input id="searchInput" placeholder="Search markets, rumors, teams..." />
+              </div>
+              <select id="categoryFilter">
+                <option value="all">All categories</option>
+                <option value="business">Business</option>
+                <option value="rumor">Rumors</option>
+                <option value="fun">Fun</option>
+                <option value="people">People</option>
+              </select>
+              <select id="sortFilter">
+                <option value="hot">Hot</option>
+                <option value="move">Biggest moves</option>
+                <option value="close">Closing soon</option>
+                <option value="new">Newest</option>
+              </select>
+            </div>
+            <div id="marketGrid" class="market-grid"></div>
+          </section>
+
+          <section id="suggestionsView" class="view">
+            <section class="suggestions-hero">
+              <div>
+                <p class="eyebrow">Market queue</p>
+                <h2>Suggested bets</h2>
+                <p>
+                  Clean ideas from Slack patterns and sales signals. Binary ideas launch directly. Multiple-choice ideas launch
+                  as one YES/NO market per outcome until the full multi-outcome engine is built.
+                </p>
+              </div>
+              <button class="primary" id="launchTopSuggestionsBtn">Launch top 3</button>
+            </section>
+            <div class="suggestion-toolbar">
+              <input id="suggestionSearchInput" placeholder="Search suggestions..." />
+              <select id="suggestionTypeFilter">
+                <option value="all">All types</option>
+                <option value="binary">Binary</option>
+                <option value="multiple">Multiple choice</option>
+                <option value="spicy">HR spicy</option>
+              </select>
+            </div>
+            <div id="suggestionGrid" class="suggestion-grid"></div>
+          </section>
+
+          <section id="radarView" class="view">
+            <div class="radar-grid">
+              <section class="panel wide">
+                <div class="panel-header">
+                  <p class="panel-label">Probability movement</p>
+                  <span class="muted">What changed since people last looked?</span>
+                </div>
+                <div id="movementList" class="movement-list"></div>
+              </section>
+
+              <section class="panel wide">
+                <div class="panel-header">
+                  <p class="panel-label">Slack / Notion proposal lab</p>
+                  <span class="muted">Paste updates now. API connectors later.</span>
+                </div>
+                <textarea id="proposalText" rows="7" placeholder="Paste Slack or Notion snippets here. Example: The founders keep hinting that Project Atlas will ship before Friday. Finance is asking about a surprise offsite budget."></textarea>
+                <div class="proposal-actions">
+                  <button id="generateProposalsBtn" class="primary">Generate proposals</button>
+                  <button id="clearProposalsBtn" class="ghost">Clear</button>
+                </div>
+                <div id="proposalList" class="proposal-list"></div>
+              </section>
+            </div>
+          </section>
+
+          <section id="portfolioView" class="view">
+            <section class="panel wide">
+              <p class="panel-label">Open positions</p>
+              <div id="positionsList" class="positions-list"></div>
+            </section>
+          </section>
+
+          <section id="adminView" class="view">
+            <section class="panel wide">
+              <div class="panel-header">
+                <p class="panel-label">Admin resolution queue</p>
+                <span class="muted">Prototype assumes you are the only admin.</span>
+              </div>
+              <div id="adminList" class="admin-list"></div>
+            </section>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="authDialog">
+      <form method="dialog" class="dialog-card auth-card">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">Signal identity</p>
+            <h2 id="authDialogTitle">Log in</h2>
+          </div>
+          <button type="button" class="icon-button" data-close-dialog="authDialog" aria-label="Close account dialog">x</button>
+        </div>
+        <div class="segmented-control" role="tablist" aria-label="Account mode">
+          <button type="button" class="active" data-auth-mode="login">Log in</button>
+          <button type="button" data-auth-mode="signup">Create account</button>
+        </div>
+        <label>
+          Username
+          <input id="authUsernameInput" autocomplete="username" required placeholder="e.g. rumor_queen" />
+        </label>
+        <label class="signup-only">
+          Display name
+          <input id="authDisplayNameInput" autocomplete="nickname" placeholder="Pick your public desk name" />
+        </label>
+        <label>
+          Password
+          <input id="authPasswordInput" type="password" autocomplete="current-password" required placeholder="At least 6 characters" />
+        </label>
+        <div class="avatar-picker signup-only" id="avatarPicker" aria-label="Avatar picker"></div>
+        <p class="muted auth-note">
+          Usernames and avatars are visible in the game. Login details stay inside Supabase Auth.
+        </p>
+        <div class="dialog-actions">
+          <button type="button" data-close-dialog="authDialog" class="ghost">Cancel</button>
+          <button type="button" id="saveAuthBtn" class="primary">Log in</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="marketDialog">
+      <form method="dialog" class="dialog-card">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">New signal</p>
+            <h2>Create a market</h2>
+          </div>
+          <button type="button" class="icon-button" data-close-dialog="marketDialog" aria-label="Close create market dialog">x</button>
+        </div>
+        <label>
+          Question
+          <input id="marketTitleInput" required placeholder="Will Project Atlas ship before June 30?" />
+        </label>
+        <label>
+          Resolution criteria
+          <textarea id="marketCriteriaInput" rows="3" required placeholder="YES if the release is live for customers by 18:00 CET on June 30."></textarea>
+        </label>
+        <div class="form-row">
+          <label>
+            Category
+            <select id="marketCategoryInput">
+              <option value="business">Business</option>
+              <option value="rumor">Rumor</option>
+              <option value="fun">Fun</option>
+              <option value="people">People</option>
+            </select>
+          </label>
+          <label>
+            Closes
+            <input id="marketCloseInput" type="date" required />
+          </label>
+        </div>
+        <div class="form-row">
+          <label>
+            Initial YES %
+            <input id="marketProbInput" type="number" min="5" max="95" value="50" />
+          </label>
+          <label>
+            Liquidity
+            <input id="marketLiquidityInput" type="number" min="100" step="100" value="1000" />
+          </label>
+        </div>
+        <div class="dialog-actions">
+          <button type="button" data-close-dialog="marketDialog" class="ghost">Cancel</button>
+          <button id="saveMarketBtn" value="default" class="primary">Launch market</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="tradeDialog">
+      <form method="dialog" class="dialog-card">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow" id="tradeSideLabel">Trade</p>
+            <h2 id="tradeTitle">Market</h2>
+          </div>
+          <button type="button" class="icon-button" data-close-dialog="tradeDialog" aria-label="Close trade dialog">x</button>
+        </div>
+        <div class="trade-preview">
+          <div>
+            <span>Current price</span>
+            <strong id="tradePrice">0%</strong>
+          </div>
+          <div>
+            <span>Estimated shares</span>
+            <strong id="tradeShares">0</strong>
+          </div>
+        </div>
+        <label>
+          Stake credits
+          <input id="tradeAmountInput" type="number" min="1" step="1" value="50" />
+        </label>
+        <div class="quick-stakes">
+          <button type="button" data-stake="25">25</button>
+          <button type="button" data-stake="50">50</button>
+          <button type="button" data-stake="100">100</button>
+          <button type="button" data-stake="250">250</button>
+        </div>
+        <div class="dialog-actions">
+          <button type="button" data-close-dialog="tradeDialog" class="ghost">Cancel</button>
+          <button id="confirmTradeBtn" value="default" class="primary">Place trade</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="idleBonusDialog">
+      <form method="dialog" class="dialog-card bonus-dialog">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">Idle bonus</p>
+            <h2>Energy Slot</h2>
+          </div>
+        </div>
+        <p class="muted">
+          You were away for a moment. Take one optional spin for extra credits.
+        </p>
+        <div class="slot-machine" aria-live="polite">
+          <div class="slot-reel" id="slotOne">❓</div>
+          <div class="slot-reel" id="slotTwo">❓</div>
+          <div class="slot-reel" id="slotThree">❓</div>
+        </div>
+        <div class="bonus-result" id="bonusResult">One spin. Clear odds. Real dopamine.</div>
+        <div class="odds-strip">
+          <span>0: 35%</span>
+          <span>25: 30%</span>
+          <span>50: 20%</span>
+          <span>100: 10%</span>
+          <span>250: 5%</span>
+        </div>
+        <div class="dialog-actions">
+          <button type="button" data-close-dialog="idleBonusDialog" class="ghost">Skip</button>
+          <button type="button" id="spinBonusBtn" class="primary">Spin once</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div id="toast" class="toast" role="status"></div>
+    <script src="./config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>

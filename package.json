@@ -1,0 +1,12 @@
+{
+  "name": "signal-floor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Internal play-money prediction market for ecoplanet.",
+  "scripts": {
+    "build": "node scripts/build-config.cjs",
+    "check": "node --check app.js",
+    "smoke": "node scripts/smoke-test.cjs",
+    "smoke:slot": "node scripts/slot-smoke-test.cjs"
+  }
+}
