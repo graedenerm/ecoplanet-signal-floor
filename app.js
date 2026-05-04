@@ -1834,7 +1834,7 @@ function renderCompactList() {
   const list = $("#compactMarketList");
   if (!list) return;
   const q = ($("#listSearchInput")?.value || "").trim().toLowerCase();
-  const category = $("#listCategoryFilter")?.value || "all";
+  const category = document.querySelector("#listCategoryButtons .filter-button.active")?.dataset.cat || "all";
   const markets = state.markets
     .filter((m) => m.status === "open")
     .filter((m) => category === "all" || m.category === category)
@@ -2749,8 +2749,13 @@ function bindEvents() {
   $("#howItWorksBtn").addEventListener("click", () => activateView("tutorial"));
   $("#postRumorBtn").addEventListener("click", postRumor);
 
-  ["listSearchInput", "listCategoryFilter"].forEach((id) => {
-    $(`#${id}`).addEventListener("input", renderCompactList);
+  $("#listSearchInput")?.addEventListener("input", renderCompactList);
+
+  $("#listCategoryButtons")?.addEventListener("click", (event) => {
+    const btn = event.target.closest(".filter-button");
+    if (!btn) return;
+    $$("#listCategoryButtons .filter-button").forEach((b) => b.classList.toggle("active", b === btn));
+    renderCompactList();
   });
 
   $("#detailBuyYes").addEventListener("click", () => openTradeFromDetail("yes"));
@@ -2773,9 +2778,13 @@ function bindEvents() {
   $("#hideIntroBtn")?.addEventListener("click", () => {
     localStorage.setItem("signal-floor-intro-hidden", "true");
     applyIntroVisibility();
-    toast("Intro hidden on this device.");
+    activateView("list");
+    toast("Intro hidden. Overview is now your default.");
   });
   applyIntroVisibility();
+  if (localStorage.getItem("signal-floor-intro-hidden") === "true" && document.body.dataset.activeView !== "list") {
+    activateView("list");
+  }
 }
 
 function activateView(view) {

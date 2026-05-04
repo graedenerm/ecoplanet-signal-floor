@@ -97,6 +97,7 @@
 
           <section id="overviewView" class="view active">
             <section class="intro-hero">
+              <button type="button" class="intro-close" id="hideIntroBtn" aria-label="Hide intro" title="Hide this intro forever on this device">×</button>
               <div class="intro-copy">
                 <p class="eyebrow">Redefining rumors for tomorrow</p>
                 <h2>Make company guesses visible.</h2>
@@ -107,7 +108,6 @@
                 <div class="intro-actions">
                   <button class="primary" id="startTutorialBtn">Learn the rules</button>
                   <button class="ghost" id="startTradingBtn">See bets</button>
-                  <button class="ghost" id="hideIntroBtn" title="Hide the welcome panel on this device">Got it, hide tour</button>
                 </div>
               </div>
               <div class="intro-metric">
@@ -395,13 +395,13 @@
               <div class="search-wrap">
                 <input id="listSearchInput" type="search" placeholder="Search bets..." />
               </div>
-              <select id="listCategoryFilter">
-                <option value="all">All categories</option>
-                <option value="business">Business</option>
-                <option value="rumor">Rumor</option>
-                <option value="fun">Fun</option>
-                <option value="people">People</option>
-              </select>
+            </div>
+            <div class="filter-group" id="listCategoryButtons" role="group" aria-label="Filter by category">
+              <button type="button" class="filter-button active" data-cat="all">All</button>
+              <button type="button" class="filter-button" data-cat="business">Business</button>
+              <button type="button" class="filter-button" data-cat="rumor">Rumor</button>
+              <button type="button" class="filter-button" data-cat="fun">Fun</button>
+              <button type="button" class="filter-button" data-cat="people">People</button>
             </div>
             <div id="compactMarketList" class="movement-list"></div>
           </section>

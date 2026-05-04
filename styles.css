@@ -453,6 +453,7 @@ body[data-active-view="tutorial"] .content {
 }
 
 .intro-hero {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) 260px;
   gap: 16px;
@@ -462,6 +463,33 @@ body[data-active-view="tutorial"] .content {
   background: var(--panel);
   color: white;
   box-shadow: var(--shadow);
+}
+
+.intro-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 1;
+  transition: all 140ms ease;
+}
+
+.intro-close:hover,
+.intro-close:focus-visible {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: white;
+  transform: scale(1.05);
 }
 
 .intro-hero .eyebrow {
@@ -1681,6 +1709,56 @@ label {
   display: block;
   margin-top: 4px;
   line-height: 1.45;
+}
+
+.filter-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.filter-button {
+  padding: 8px 16px;
+  border-radius: 99px;
+  border: 1px solid var(--line);
+  background: var(--soft);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: all 140ms ease;
+}
+
+.filter-button:hover,
+.filter-button:focus-visible {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.filter-button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.filter-button[data-cat="rumor"].active {
+  background: var(--accent-2);
+  border-color: var(--accent-2);
+  color: #0b0e1a;
+}
+
+.filter-button[data-cat="fun"].active {
+  background: var(--accent-4);
+  border-color: var(--accent-4);
+  color: #0b0e1a;
+}
+
+.filter-button[data-cat="people"].active {
+  background: var(--good);
+  border-color: var(--good);
+  color: #0b0e1a;
 }
 
 .metric-info {
