@@ -1161,11 +1161,48 @@ function render() {
   renderPersonas();
   renderLeaderboard();
   renderOverview();
+  renderClosingSoon();
   renderMarkets();
   renderSuggestions();
   renderMovement();
   renderPositions();
   renderAdmin();
+}
+
+function renderClosingSoon() {
+  const list = $("#closingSoonList");
+  if (!list) return;
+  const now = Date.now();
+  const soon = state.markets
+    .filter((market) => market.status === "open")
+    .map((market) => ({
+      market,
+      closeMs: new Date(`${market.closeDate}T18:00:00`).getTime(),
+    }))
+    .filter((entry) => Number.isFinite(entry.closeMs) && entry.closeMs > now)
+    .sort((a, b) => a.closeMs - b.closeMs)
+    .slice(0, 5);
+
+  if (!soon.length) {
+    list.innerHTML = `<p class="muted">No open markets closing soon.</p>`;
+    return;
+  }
+
+  list.innerHTML = soon
+    .map(({ market, closeMs }) => {
+      const daysLeft = Math.max(0, Math.ceil((closeMs - now) / 86400000));
+      const label =
+        daysLeft === 0 ? "closes today" : daysLeft === 1 ? "closes tomorrow" : `closes in ${daysLeft} days`;
+      return `
+        <div class="movement" role="button" tabindex="0" data-jump-market="${market.id}" style="cursor:pointer;">
+          <div>
+            <strong>${esc(market.title)}</strong>
+            <span class="muted">${pct(probability(market))} YES · ${label} · ${esc(market.category)}</span>
+          </div>
+          <span class="delta">→</span>
+        </div>`;
+    })
+    .join("");
 }
 
 function renderOverview() {
@@ -1184,6 +1221,9 @@ function renderUser() {
   $("#walletBalance").textContent = money(user.wallet);
   $("#portfolioValue").textContent = money(portfolioValue(user.id));
   $("#edgeScore").textContent = money(edgeScore(user));
+  const showAirdrop = !supabaseMode || Boolean(user.isAdmin);
+  $("#airdropBtn").classList.toggle("hidden", !showAirdrop);
+  $("#airdropBtn").textContent = supabaseMode && user.isAdmin ? "Send weekly drop (admin)" : "Weekly token drop";
 }
 
 function renderGamification() {
@@ -1214,6 +1254,8 @@ function renderGamification() {
   const claimable = missions.some((mission) => mission.complete && !mission.claimed);
   $("#claimMissionsBtn").disabled = !claimable;
   $("#claimMissionsBtn").textContent = claimable ? "Claim rewards" : "All caught up";
+  $("#missionList").classList.toggle("hidden", supabaseMode);
+  $("#claimMissionsBtn").classList.toggle("hidden", supabaseMode);
 
   $("#badgeList").innerHTML = badgeCatalog(user)
     .map(
@@ -1539,7 +1581,7 @@ async function placeTrade(marketId, side, amount) {
   }
 
   if (supabaseMode && supabaseClient) {
-    const { error } = await supabaseClient.rpc("place_trade", { market_id: marketId, side, amount });
+    const { error } = await supabaseClient.rpc("place_trade", { p_market_id: marketId, p_side: side, p_amount: amount });
     if (error) {
       toast(`Trade failed: ${error.message}`);
       return false;
@@ -1581,8 +1623,14 @@ async function resolveMarket(marketId, result) {
   const market = state.markets.find((item) => item.id === marketId);
   if (!market || market.status !== "open") return;
 
+  const actionText =
+    result === "void"
+      ? `void "${market.title}" and refund all stakes`
+      : `resolve "${market.title}" as ${result.toUpperCase()} and pay out winners`;
+  if (!confirm(`Are you sure you want to ${actionText}? This cannot be undone.`)) return;
+
   if (supabaseMode && supabaseClient) {
-    const { error } = await supabaseClient.rpc("resolve_market", { market_id: marketId, result });
+    const { error } = await supabaseClient.rpc("resolve_market", { p_market_id: marketId, p_result: result });
     if (error) return toast(`Resolve failed: ${error.message}`);
     await refreshSupabaseData();
     toast(result === "void" ? "Market voided and stakes returned." : `Resolved ${result.toUpperCase()}. Payouts posted.`);
@@ -1685,9 +1733,23 @@ function newPersona() {
   toast(`Joined as ${name}.`);
 }
 
-function airdrop() {
+async function airdrop() {
   if (supabaseMode) {
-    toast("Weekly drops need admin-controlled server payouts in Live Beta.");
+    if (!supabaseClient) return;
+    if (!currentUser()?.isAdmin) {
+      toast("Only admin can trigger the weekly drop.");
+      return;
+    }
+    if (!confirm("Send the weekly token drop to ALL users? This cannot be undone.")) return;
+    const { data, error } = await supabaseClient.rpc("admin_weekly_airdrop");
+    if (error) {
+      toast(`Drop failed: ${error.message}`);
+      return;
+    }
+    await refreshSupabaseData();
+    pulseSpark();
+    launchMarketConfetti();
+    toast(`Weekly drop sent: ${money(Number(data || 0))} credits across all users.`);
     return;
   }
   const user = currentUser();
@@ -2088,6 +2150,12 @@ function bindEvents() {
     const criteria = $("#marketCriteriaInput").value.trim();
     const closeDate = $("#marketCloseInput").value;
     if (!title || !criteria || !closeDate) return toast("Question, criteria, and close date are required.");
+    if (title.length < 10) return toast("Question needs at least 10 characters.");
+    if (title.length > 220) return toast("Question is too long (max 220 characters).");
+    if (criteria.length < 20) return toast("Criteria needs at least 20 characters — describe how YES is decided.");
+    if (criteria.length > 1400) return toast("Criteria is too long (max 1400 characters).");
+    const closeMs = new Date(`${closeDate}T18:00:00`).getTime();
+    if (!Number.isFinite(closeMs) || closeMs <= Date.now()) return toast("Close date must be in the future.");
     const created = await createMarket({
       title,
       criteria,
@@ -2123,6 +2191,15 @@ function bindEvents() {
       state.currentUserId = persona.dataset.user;
       save();
       render();
+    }
+
+    const jumpMarket = event.target.closest("[data-jump-market]");
+    if (jumpMarket) {
+      activateView("markets");
+      window.requestAnimationFrame(() => {
+        const card = document.getElementById(`spark-${jumpMarket.dataset.jumpMarket}`)?.closest(".market-card");
+        card?.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
     }
 
     const tradeButton = event.target.closest("[data-trade]");
