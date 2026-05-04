@@ -892,6 +892,8 @@ async function bootstrapSupabase() {
     });
     await loadUserPositionsAndTrades(state.currentUserId);
     supabaseMode = true;
+    await loadActivity();
+    await loadRumors();
     setConnectionStatus("live", "Supabase live");
     save();
     render();
@@ -1005,6 +1007,7 @@ async function refreshSupabaseData() {
   });
 
   await loadUserPositionsAndTrades(state.currentUserId);
+  await loadActivity();
 
   save();
   render();
@@ -1163,8 +1166,10 @@ function render() {
   renderOverview();
   renderClosingSoon();
   renderMarkets();
+  renderCompactList();
   renderSuggestions();
-  renderMovement();
+  renderRumors();
+  renderActivityFeed();
   renderPositions();
   renderAdmin();
 }
@@ -1224,6 +1229,8 @@ function renderUser() {
   const showAirdrop = !supabaseMode || Boolean(user.isAdmin);
   $("#airdropBtn").classList.toggle("hidden", !showAirdrop);
   $("#airdropBtn").textContent = supabaseMode && user.isAdmin ? "Send weekly drop (admin)" : "Weekly token drop";
+  const adminTab = document.querySelector('.tab[data-view="admin"]');
+  if (adminTab) adminTab.classList.toggle("hidden", supabaseMode && !user.isAdmin);
 }
 
 function renderGamification() {
@@ -1463,24 +1470,219 @@ function drawSparkline(id, history) {
   ctx.fill();
 }
 
-function renderMovement() {
-  const movers = [...state.markets]
-    .filter((market) => market.status === "open")
-    .sort((a, b) => Math.abs(marketMove(b)) - Math.abs(marketMove(a)))
-    .slice(0, 8);
-  $("#movementList").innerHTML = movers
-    .map((market) => {
-      const move = marketMove(market);
+function timeAgo(ms) {
+  const seconds = Math.max(0, Math.floor((Date.now() - ms) / 1000));
+  if (seconds < 30) return "just now";
+  if (seconds < 90) return "a minute ago";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+async function loadActivity() {
+  if (!supabaseClient || !supabaseMode) {
+    state.activity = [];
+    return;
+  }
+  const { data, error } = await supabaseClient.rpc("recent_activity", { p_limit: 30 });
+  if (error) {
+    console.error("Failed to load activity:", error);
+    state.activity = [];
+    return;
+  }
+  state.activity = (data || []).map((row) => ({
+    tradeId: row.trade_id,
+    userId: row.user_id,
+    displayName: row.display_name,
+    avatar: row.avatar_seed || "?",
+    marketId: row.market_id,
+    marketTitle: row.market_title,
+    side: row.side,
+    amount: Number(row.amount),
+    shares: Number(row.shares),
+    price: Number(row.price),
+    at: new Date(row.created_at).getTime(),
+  }));
+}
+
+function renderActivityFeed() {
+  const list = $("#activityFeed");
+  if (!list) return;
+  if (!supabaseMode) {
+    list.innerHTML = `<p class="muted">Sign in to see live floor activity.</p>`;
+    return;
+  }
+  if (!state.activity?.length) {
+    list.innerHTML = `<p class="muted">No trades yet — be the first to take a position.</p>`;
+    return;
+  }
+  list.innerHTML = state.activity
+    .map((trade) => {
+      const sideTag =
+        trade.side === "yes"
+          ? `<span class="delta">+${money(trade.amount)} YES</span>`
+          : `<span class="delta down">${money(trade.amount)} NO</span>`;
       return `
-      <div class="movement">
-        <div>
-          <strong>${esc(market.title)}</strong>
-          <span class="muted">${pct(probability(market))} YES now. ${esc(market.category)} market.</span>
-        </div>
-        <span class="delta ${move < 0 ? "down" : ""}">${move >= 0 ? "+" : ""}${Math.round(move * 100)} pts</span>
-      </div>`;
+        <div class="movement" role="button" tabindex="0" data-jump-market="${trade.marketId}" style="cursor:pointer;">
+          <div>
+            <strong>${esc(trade.displayName)}</strong>
+            <span class="muted">${esc(trade.marketTitle)} · ${pct(trade.price)} · ${timeAgo(trade.at)}</span>
+          </div>
+          ${sideTag}
+        </div>`;
     })
     .join("");
+}
+
+async function loadRumors() {
+  if (!supabaseClient || !supabaseMode) {
+    state.rumors = [];
+    return;
+  }
+  const { data, error } = await supabaseClient.rpc("public_rumors", { p_limit: 50 });
+  if (error) {
+    console.error("Failed to load rumors:", error);
+    state.rumors = [];
+    return;
+  }
+  state.rumors = (data || []).map((r) => ({
+    id: r.id,
+    body: r.body,
+    createdAt: new Date(r.created_at).getTime(),
+  }));
+}
+
+async function postRumor() {
+  const input = $("#rumorInput");
+  if (!input) return;
+  const body = input.value.trim();
+  if (body.length < 5) return toast("Rumor needs at least 5 characters.");
+  if (body.length > 500) return toast("Rumor is too long (max 500 characters).");
+  if (!supabaseMode || !supabaseClient) {
+    toast("Sign in to post a rumor.");
+    return;
+  }
+  const btn = $("#postRumorBtn");
+  if (btn) btn.disabled = true;
+  const { error } = await supabaseClient.from("rumors").insert({
+    body,
+    posted_by: state.currentUserId,
+  });
+  if (btn) btn.disabled = false;
+  if (error) {
+    toast(`Failed to post: ${error.message}`);
+    return;
+  }
+  input.value = "";
+  await loadRumors();
+  renderRumors();
+  pulseSpark();
+  toast("Rumor posted anonymously.");
+}
+
+function renderRumors() {
+  const list = $("#rumorList");
+  if (!list) return;
+  if (!supabaseMode) {
+    list.innerHTML = `<p class="muted">Sign in to see rumors.</p>`;
+    return;
+  }
+  if (!state.rumors?.length) {
+    list.innerHTML = `<p class="muted">No rumors yet. Be the first to drop one.</p>`;
+    return;
+  }
+  list.innerHTML = state.rumors
+    .map(
+      (rumor) => `
+        <div class="rumor">
+          <p>${esc(rumor.body)}</p>
+          <div class="rumor-meta">
+            <span class="muted">${timeAgo(rumor.createdAt)}</span>
+            <button type="button" class="ghost rumor-action" data-rumor-id="${rumor.id}">Make this a market</button>
+          </div>
+        </div>`
+    )
+    .join("");
+}
+
+function renderCompactList() {
+  const list = $("#compactMarketList");
+  if (!list) return;
+  const q = ($("#listSearchInput")?.value || "").trim().toLowerCase();
+  const category = $("#listCategoryFilter")?.value || "all";
+  const markets = state.markets
+    .filter((m) => m.status === "open")
+    .filter((m) => category === "all" || m.category === category)
+    .filter((m) => !q || `${m.title} ${m.criteria} ${m.category}`.toLowerCase().includes(q))
+    .sort((a, b) => new Date(a.closeDate) - new Date(b.closeDate));
+
+  if (!markets.length) {
+    list.innerHTML = `<p class="muted">No matching markets.</p>`;
+    return;
+  }
+
+  list.innerHTML = markets
+    .map((m) => {
+      const closeMs = new Date(`${m.closeDate}T18:00:00`).getTime();
+      const daysLeft = Math.max(0, Math.ceil((closeMs - Date.now()) / 86400000));
+      const closeLabel = daysLeft === 0 ? "today" : daysLeft === 1 ? "tomorrow" : `${daysLeft}d`;
+      return `
+        <div class="movement" role="button" tabindex="0" data-market-detail="${m.id}" style="cursor:pointer;">
+          <div>
+            <strong>${esc(m.title)}</strong>
+            <span class="muted">${pct(probability(m))} YES · ${esc(m.category)} · closes ${closeLabel}</span>
+          </div>
+          <span class="delta">→</span>
+        </div>`;
+    })
+    .join("");
+}
+
+let currentDetailMarketId = null;
+
+function showMarketDetail(marketId) {
+  const market = state.markets.find((m) => m.id === marketId);
+  if (!market) return;
+  currentDetailMarketId = marketId;
+  $("#detailTitle").textContent = market.title;
+  $("#detailCategory").textContent = `${market.category} market`;
+  $("#detailProbability").textContent = pct(probability(market));
+  $("#detailCriteria").textContent = market.criteria;
+
+  const closeMs = new Date(`${market.closeDate}T18:00:00`).getTime();
+  const daysLeft = Math.max(0, Math.ceil((closeMs - Date.now()) / 86400000));
+  const closeLabel = daysLeft === 0 ? "closes today" : daysLeft === 1 ? "closes tomorrow" : `closes in ${daysLeft}d`;
+  $("#detailMeta").textContent = `${money(market.volume)} volume · ${closeLabel}`;
+
+  const myYes = getPosition(state.currentUserId, marketId, "yes").shares;
+  const myNo = getPosition(state.currentUserId, marketId, "no").shares;
+  $("#detailMyPosition").textContent =
+    myYes > 0.01 || myNo > 0.01
+      ? `Your position: YES ${myYes.toFixed(1)} shares · NO ${myNo.toFixed(1)} shares`
+      : "No position yet on this market.";
+
+  const closed = market.status !== "open";
+  $("#detailBuyYes").disabled = closed;
+  $("#detailBuyNo").disabled = closed;
+
+  $("#marketDetailDialog").showModal();
+  window.requestAnimationFrame(() => drawSparkline("detailSparkline", market.history));
+}
+
+function openTradeFromDetail(side) {
+  if (!currentDetailMarketId) return;
+  const market = state.markets.find((m) => m.id === currentDetailMarketId);
+  if (!market) return;
+  $("#marketDetailDialog").close();
+  tradeIntent = { marketId: currentDetailMarketId, side };
+  $("#tradeSideLabel").textContent = `Buy ${side.toUpperCase()}`;
+  $("#tradeTitle").textContent = market.title;
+  $("#tradeAmountInput").value = 50;
+  updateTradePreview();
+  $("#tradeDialog").showModal();
 }
 
 function renderPositions() {
@@ -2202,6 +2404,20 @@ function bindEvents() {
       });
     }
 
+    const detailBtn = event.target.closest("[data-market-detail]");
+    if (detailBtn) showMarketDetail(detailBtn.dataset.marketDetail);
+
+    const rumorAction = event.target.closest("[data-rumor-id]");
+    if (rumorAction) {
+      const rumor = state.rumors?.find((r) => r.id === rumorAction.dataset.rumorId);
+      if (rumor) {
+        const title = questionFromText(rumor.body);
+        $("#marketTitleInput").value = title.slice(0, 220);
+        $("#marketCriteriaInput").value = `Based on the rumor: "${rumor.body}". YES if confirmed by an official company source or visible outcome within 30 days.`;
+        openCreateDialog();
+      }
+    }
+
     const tradeButton = event.target.closest("[data-trade]");
     if (tradeButton) {
       const market = state.markets.find((item) => item.id === tradeButton.dataset.trade);
@@ -2263,11 +2479,15 @@ function bindEvents() {
     $("#tradeDialog").close();
   });
 
-  $("#generateProposalsBtn").addEventListener("click", generateProposals);
-  $("#clearProposalsBtn").addEventListener("click", () => {
-    $("#proposalText").value = "";
-    $("#proposalList").innerHTML = "";
+  $("#howItWorksBtn").addEventListener("click", () => activateView("tutorial"));
+  $("#postRumorBtn").addEventListener("click", postRumor);
+
+  ["listSearchInput", "listCategoryFilter"].forEach((id) => {
+    $(`#${id}`).addEventListener("input", renderCompactList);
   });
+
+  $("#detailBuyYes").addEventListener("click", () => openTradeFromDetail("yes"));
+  $("#detailBuyNo").addEventListener("click", () => openTradeFromDetail("no"));
 
   document.addEventListener("mouseleave", (event) => {
     if (event.clientY <= 0) launchExitSadness();
@@ -2297,6 +2517,10 @@ function activateView(view) {
     awardBadges(user);
     save();
     renderGamification();
+    if (supabaseMode) loadActivity().then(() => renderActivityFeed());
+  }
+  if (view === "rumors" && supabaseMode) {
+    loadRumors().then(() => renderRumors());
   }
 }
 

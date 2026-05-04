@@ -23,6 +23,7 @@
           <button class="ghost" id="openAuthBtn">Account</button>
           <button class="ghost hidden" id="signOutBtn">Sign out</button>
           <button class="ghost" id="newPersonaBtn" title="Create another anonymous profile">New persona</button>
+          <button class="ghost" id="howItWorksBtn">How it works</button>
           <button class="primary" id="openCreateBtn">Create market</button>
         </div>
       </header>
@@ -85,10 +86,11 @@
         <section class="content">
           <nav class="tabs" aria-label="Views">
             <button class="tab active" data-view="overview">Start</button>
-            <button class="tab" data-view="tutorial">Tutorial & FAQ</button>
             <button class="tab" data-view="markets">Markets</button>
+            <button class="tab" data-view="list">List</button>
             <button class="tab" data-view="suggestions">Suggestions</button>
-            <button class="tab" data-view="radar">Rumor radar</button>
+            <button class="tab" data-view="rumors">Rumors</button>
+            <button class="tab" data-view="radar">Pulse</button>
             <button class="tab" data-view="portfolio">Portfolio</button>
             <button class="tab" data-view="admin">Admin</button>
           </nav>
@@ -346,28 +348,53 @@
           </section>
 
           <section id="radarView" class="view">
-            <div class="radar-grid">
-              <section class="panel wide">
-                <div class="panel-header">
-                  <p class="panel-label">Probability movement</p>
-                  <span class="muted">What changed since people last looked?</span>
-                </div>
-                <div id="movementList" class="movement-list"></div>
-              </section>
+            <section class="panel wide">
+              <div class="panel-header">
+                <p class="panel-label">Recent activity</p>
+                <span class="muted">The last trades on the floor</span>
+              </div>
+              <div id="activityFeed" class="movement-list"></div>
+            </section>
+          </section>
 
-              <section class="panel wide">
-                <div class="panel-header">
-                  <p class="panel-label">Slack / Notion proposal lab</p>
-                  <span class="muted">Paste updates now. API connectors later.</span>
-                </div>
-                <textarea id="proposalText" rows="7" placeholder="Paste Slack or Notion snippets here. Example: The founders keep hinting that Project Atlas will ship before Friday. Finance is asking about a surprise offsite budget."></textarea>
-                <div class="proposal-actions">
-                  <button id="generateProposalsBtn" class="primary">Generate proposals</button>
-                  <button id="clearProposalsBtn" class="ghost">Clear</button>
-                </div>
-                <div id="proposalList" class="proposal-list"></div>
-              </section>
-            </div>
+          <section id="rumorsView" class="view">
+            <section class="panel wide">
+              <div class="panel-header">
+                <p class="panel-label">Post a rumor</p>
+                <span class="muted">Anonymous. 5–500 characters. No names attached.</span>
+              </div>
+              <textarea id="rumorInput" rows="3" maxlength="500" placeholder="Drop a rumor or office whisper here..."></textarea>
+              <div class="proposal-actions">
+                <button id="postRumorBtn" class="primary">Post anonymously</button>
+              </div>
+            </section>
+            <section class="panel wide">
+              <div class="panel-header">
+                <p class="panel-label">Floor whispers</p>
+                <span class="muted">Newest first</span>
+              </div>
+              <div id="rumorList" class="rumor-list"></div>
+            </section>
+          </section>
+
+          <section id="listView" class="view">
+            <section class="panel wide">
+              <div class="panel-header">
+                <p class="panel-label">All open markets</p>
+                <span class="muted">Tap a row to open</span>
+              </div>
+              <div class="filters">
+                <input id="listSearchInput" type="search" placeholder="Search markets..." />
+                <select id="listCategoryFilter">
+                  <option value="all">All categories</option>
+                  <option value="business">Business</option>
+                  <option value="rumor">Rumor</option>
+                  <option value="fun">Fun</option>
+                  <option value="people">People</option>
+                </select>
+              </div>
+              <div id="compactMarketList" class="movement-list"></div>
+            </section>
           </section>
 
           <section id="portfolioView" class="view">
@@ -539,6 +566,32 @@
         <div class="dialog-actions">
           <button type="button" data-close-dialog="idleBonusDialog" class="ghost">Skip</button>
           <button type="button" id="spinBonusBtn" class="primary">Spin once</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="marketDetailDialog">
+      <form method="dialog" class="dialog-card market-detail-card">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow" id="detailCategory">Market</p>
+            <h2 id="detailTitle">Market</h2>
+          </div>
+          <button type="button" class="icon-button" data-close-dialog="marketDetailDialog" aria-label="Close market detail">x</button>
+        </div>
+        <div class="detail-meta">
+          <div class="probability">
+            <strong id="detailProbability">50%</strong>
+            <span class="muted">YES</span>
+          </div>
+          <span id="detailMeta" class="muted"></span>
+        </div>
+        <canvas id="detailSparkline" class="sparkline" width="600" height="120"></canvas>
+        <p id="detailCriteria" class="muted"></p>
+        <p id="detailMyPosition" class="muted"></p>
+        <div class="dialog-actions">
+          <button type="button" class="yes-btn" id="detailBuyYes">Buy YES</button>
+          <button type="button" class="no-btn" id="detailBuyNo">Buy NO</button>
         </div>
       </form>
     </dialog>
