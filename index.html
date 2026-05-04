@@ -279,23 +279,35 @@
               <div class="faq-list">
                 <details open>
                   <summary>Is this real money?</summary>
-                  <p>No. The prototype uses credits only. Credits are for competition and learning, not deposits or cash-out.</p>
+                  <p>No — credits only. They are for competition, bragging rights, and reading the company well. There is nothing to deposit and nothing to cash out.</p>
                 </details>
                 <details>
-                  <summary>Can founders see who I am?</summary>
-                  <p>The app is designed around pseudonymous names. In this prototype, identities are local browser personas, not public company identities.</p>
+                  <summary>Can my colleagues see who I am?</summary>
+                  <p>You pick a display name and an avatar. The app never shows your real name, email, or company identity to other players. Even the founders see only your display name. The only person with backstage access is the admin who runs the project.</p>
+                </details>
+                <details>
+                  <summary>How do I actually win credits?</summary>
+                  <p>When you Buy YES, you get YES shares at the current price. If YES is at 60%, each share costs 0.60 credits. If the market resolves YES, every YES share pays 1 credit — so a share you bought at 0.60 pays 1, a profit of 0.40. If it resolves NO, your YES shares are worth zero and you lose what you spent. The same in reverse for NO.</p>
                 </details>
                 <details>
                   <summary>Why does the probability change?</summary>
-                  <p>Because trades move the market. More YES buying pushes the YES probability up. More NO buying pushes it down.</p>
+                  <p>Because trades move the market. More YES buying pushes the YES probability up. More NO buying pushes it down. Watching the chart over time is the whole game — that line is the company's collective gut feeling, made visible.</p>
                 </details>
                 <details>
                   <summary>What happens when a market ends?</summary>
-                  <p>The admin resolves it as YES, NO, or Void. Winning positions receive credits. Void returns stakes.</p>
+                  <p>The admin resolves it as YES, NO, or Void. Winners get paid in credits, losers don't. Void means the question turned out to be unanswerable, and everyone gets their stake back.</p>
+                </details>
+                <details>
+                  <summary>What is the slot machine?</summary>
+                  <p>If you stay idle for a while, a small slot dialog pops up offering one optional spin for a credit reward. It's a fun nudge, not required. You can skip it.</p>
+                </details>
+                <details>
+                  <summary>What's the Rumors tab for?</summary>
+                  <p>It's an anonymous wall for office whispers. You can post a rumor without your display name attached — only the admin can ever see who posted what (for moderation if it gets ugly). Hit "Make this a market" on a rumor to spin it into a bet.</p>
                 </details>
                 <details>
                   <summary>What should we avoid?</summary>
-                  <p>Keep sensitive markets admin-approved, clearly opt-in where needed, and focused on public company-context signals. No protected characteristics, health, salary, or personal attacks.</p>
+                  <p>Keep markets focused on public company signals. No protected characteristics, health, salary, or personal attacks. If a market or rumor crosses a line, the admin will void or delete it.</p>
                 </details>
               </div>
             </section>
@@ -465,11 +477,13 @@
         </div>
         <label>
           Question
-          <input id="marketTitleInput" required placeholder="Will Project Atlas ship before June 30?" />
+          <input id="marketTitleInput" required placeholder="Will the SDR team book 10+ discos this week?" />
+          <small class="muted">Phrase as a yes/no question with a specific deadline.</small>
         </label>
         <label>
           Resolution criteria
-          <textarea id="marketCriteriaInput" rows="3" required placeholder="YES if the release is live for customers by 18:00 CET on June 30."></textarea>
+          <textarea id="marketCriteriaInput" rows="3" required placeholder="YES if at least 10 new discovery-call posts appear in #discos-booked between Monday and Sunday."></textarea>
+          <small class="muted">Spell out exactly what counts as YES. Anyone should be able to verify it from a public source (Slack post, HubSpot, all-hands, dashboard).</small>
         </label>
         <div class="form-row">
           <label>
@@ -490,10 +504,12 @@
           <label>
             Initial YES %
             <input id="marketProbInput" type="number" min="5" max="95" value="50" />
+            <small class="muted">Where the market starts before anyone bets. 50 = "no opinion yet". Higher if you think YES is likely.</small>
           </label>
           <label>
             Liquidity
             <input id="marketLiquidityInput" type="number" min="100" step="100" value="1000" />
+            <small class="muted">How much it takes to move the price. Higher = harder for one bet to swing the market.</small>
           </label>
         </div>
         <div class="dialog-actions">

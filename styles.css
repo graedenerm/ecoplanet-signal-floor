@@ -1680,3 +1680,9 @@ label {
   min-width: 200px;
 }
 
+.dialog-card label small {
+  display: block;
+  margin-top: 4px;
+  line-height: 1.45;
+}
+
