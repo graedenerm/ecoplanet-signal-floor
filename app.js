@@ -1223,11 +1223,12 @@ function renderUser() {
   $("#currentUserAvatar").textContent = profileAvatar(user);
   $("#currentUserName").textContent = user.name;
   $("#currentUserMeta").textContent = user.isAdmin ? "admin desk" : isSupabaseSignedIn() ? "signed-in desk" : "demo desk";
+  $("#openAuthBtn").classList.toggle("hidden", isSupabaseSignedIn());
   $("#signOutBtn").classList.toggle("hidden", !isSupabaseSignedIn());
   $("#newPersonaBtn").classList.toggle("hidden", isSupabaseSignedIn());
   $("#walletBalance").textContent = money(user.wallet);
   $("#portfolioValue").textContent = money(portfolioValue(user.id));
-  $("#edgeScore").textContent = money(edgeScore(user));
+  $("#edgeScore").textContent = money(netWorth(user));
   const showAirdrop = !supabaseMode || Boolean(user.isAdmin);
   $("#airdropBtn").classList.toggle("hidden", !showAirdrop);
   $("#airdropBtn").textContent = supabaseMode && user.isAdmin ? "Send weekly drop (admin)" : "Weekly token drop";
@@ -1301,13 +1302,13 @@ function renderLeaderboard() {
   const ranked = [...state.users].sort((a, b) => netWorth(b) - netWorth(a));
   $("#leaderboard").innerHTML = ranked
     .map((user, index) => {
-      const leaderBoost = index === 0 ? "Momentum leader" : `${edgeScore(user)} edge`;
+      const subtitle = index === 0 ? "Momentum leader" : "";
       return `
         <li>
           <span class="rank">${index + 1}</span>
           <div>
             <strong>${esc(user.name)}</strong>
-            <div class="muted">${leaderBoost}</div>
+            ${subtitle ? `<div class="muted">${subtitle}</div>` : ""}
           </div>
           <strong>${money(netWorth(user))}</strong>
         </li>
@@ -1426,6 +1427,12 @@ function renderMarketCard(market) {
   const closed = market.status !== "open";
   const myYes = getPosition(state.currentUserId, market.id, "yes").shares;
   const myNo = getPosition(state.currentUserId, market.id, "no").shares;
+  const movePts = Math.round(move * 100);
+  const hasMovement = movePts !== 0;
+  const moveTag = hasMovement
+    ? `<span class="tag ${move > 0 ? "good" : "bad"}">${move > 0 ? "+" : ""}${movePts} pts</span>`
+    : "";
+  const moveLabel = hasMovement ? `${move > 0 ? "+" : ""}${movePts} pts` : "—";
   return `
     <article class="market-card">
       <div class="market-top">
@@ -1434,7 +1441,7 @@ function renderMarketCard(market) {
           <div class="tag-row">
             <span class="tag">${esc(market.category)}</span>
             <span class="tag hot">${money(market.volume)} volume</span>
-            <span class="tag ${move >= 0 ? "good" : "bad"}">${move >= 0 ? "+" : ""}${Math.round(move * 100)} pts</span>
+            ${moveTag}
             ${closed ? `<span class="tag">${market.resolution}</span>` : ""}
           </div>
         </div>
@@ -1447,7 +1454,7 @@ function renderMarketCard(market) {
       <div class="movement-strip">
         <div class="movement-strip-header">
           <span>Market movement</span>
-          <strong>${move >= 0 ? "+" : ""}${Math.round(move * 100)} pts</strong>
+          <strong>${moveLabel}</strong>
         </div>
         <canvas class="sparkline" id="spark-${market.id}" width="600" height="132"></canvas>
       </div>
@@ -1738,12 +1745,19 @@ function renderPositions() {
       const market = state.markets.find((item) => item.id === pos.marketId);
       const value = market && market.status === "open" ? pos.shares * sidePrice(market, pos.side) : 0;
       const pnl = value - pos.cost;
+      const sideClass = pos.side === "yes" ? "good" : "bad";
+      const valueLine = market && market.status === "open"
+        ? `Bet ${money(pos.cost)} · worth ${money(value)} now`
+        : `Bet ${money(pos.cost)} · awaiting resolution`;
       return `
         <div class="position">
           <div class="position-row">
             <div>
               <strong>${esc(market?.title || "Market")}</strong>
-              <div class="muted">${pos.side.toUpperCase()} ${pos.shares.toFixed(2)} shares at ${money(pos.cost)} cost</div>
+              <div class="muted">
+                <span class="tag ${sideClass}">${pos.side.toUpperCase()}</span>
+                ${valueLine}
+              </div>
             </div>
             <strong class="${pnl >= 0 ? "delta" : "delta down"}">${pnl >= 0 ? "+" : ""}${money(pnl)}</strong>
           </div>
@@ -2742,10 +2756,19 @@ async function handleAuthSubmit() {
 }
 
 async function signOut() {
-  if (!supabaseClient) return;
-  await supabaseClient.auth.signOut();
+  if (!supabaseClient) {
+    toast("Not signed in.");
+    return;
+  }
+  const { error } = await supabaseClient.auth.signOut();
+  if (error) {
+    toast(`Sign out failed: ${error.message}`);
+    console.error("Sign out failed:", error);
+    return;
+  }
   supabaseMode = false;
   setConnectionStatus("error", "Signed out");
+  toast("Signed out.");
   window.location.reload();
 }
 

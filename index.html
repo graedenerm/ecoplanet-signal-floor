@@ -35,13 +35,13 @@
             <div class="big-number" id="walletBalance">0</div>
             <div class="muted">credits available</div>
             <div class="mini-grid">
-              <div>
+              <div title="Current value of your open bets at today's prices">
                 <strong id="portfolioValue">0</strong>
-                <span>portfolio</span>
+                <span>in play</span>
               </div>
-              <div>
+              <div title="Wallet plus the value of your open bets">
                 <strong id="edgeScore">0</strong>
-                <span>edge score</span>
+                <span>net worth</span>
               </div>
             </div>
             <button id="airdropBtn" class="full">Weekly token drop</button>
@@ -86,8 +86,8 @@
         <section class="content">
           <nav class="tabs" aria-label="Views">
             <button class="tab active" data-view="overview">Start</button>
-            <button class="tab" data-view="markets">Markets</button>
             <button class="tab" data-view="list">Overview</button>
+            <button class="tab" data-view="markets">Markets</button>
             <button class="tab" data-view="suggestions">Suggestions</button>
             <button class="tab" data-view="rumors">Rumors</button>
             <button class="tab" data-view="radar">Pulse</button>
@@ -390,23 +390,19 @@
           </section>
 
           <section id="listView" class="view">
-            <section class="panel wide">
-              <div class="panel-header">
-                <p class="panel-label">All open markets</p>
-                <span class="muted">Tap a row to open</span>
-              </div>
-              <div class="filters">
+            <div class="toolbar">
+              <div class="search-wrap">
                 <input id="listSearchInput" type="search" placeholder="Search markets..." />
-                <select id="listCategoryFilter">
-                  <option value="all">All categories</option>
-                  <option value="business">Business</option>
-                  <option value="rumor">Rumor</option>
-                  <option value="fun">Fun</option>
-                  <option value="people">People</option>
-                </select>
               </div>
-              <div id="compactMarketList" class="movement-list"></div>
-            </section>
+              <select id="listCategoryFilter">
+                <option value="all">All categories</option>
+                <option value="business">Business</option>
+                <option value="rumor">Rumor</option>
+                <option value="fun">Fun</option>
+                <option value="people">People</option>
+              </select>
+            </div>
+            <div id="compactMarketList" class="movement-list"></div>
           </section>
 
           <section id="portfolioView" class="view">
