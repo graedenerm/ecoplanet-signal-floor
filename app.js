@@ -1,5 +1,5 @@
 const STORAGE_KEY = "signal-floor-v1";
-const IDLE_BONUS_MS = 15000;
+const IDLE_BONUS_MS = 60 * 1000;
 const PUBLIC_CONFIG = window.SIGNAL_FLOOR_CONFIG || {};
 const APP_MODE = PUBLIC_CONFIG.mode || "demo";
 const IS_LIVE_BETA = APP_MODE === "live";
@@ -870,6 +870,8 @@ async function bootstrapSupabase() {
       .order("created_at", { ascending: true });
 
     const remoteUser = remoteProfileToLocal(profile);
+    const previousLocalGame = state.users.find((u) => u.id === remoteUser.id)?.game;
+    if (previousLocalGame) remoteUser.game = previousLocalGame;
     ensureUserGame(remoteUser);
     state.currentUserId = remoteUser.id;
     state.users = await fetchLiveUsers(remoteUser);
@@ -888,8 +890,7 @@ async function bootstrapSupabase() {
       if (!market) return;
       market.history.push({ at: new Date(point.created_at).getTime(), probability: Number(point.probability) });
     });
-    state.trades = [];
-    state.positions = {};
+    await loadUserPositionsAndTrades(state.currentUserId);
     supabaseMode = true;
     setConnectionStatus("live", "Supabase live");
     save();
@@ -919,6 +920,44 @@ async function fetchLiveUsers(fallbackUser) {
     user.game = fallbackUser.game;
     return user;
   });
+}
+
+async function loadUserPositionsAndTrades(userId) {
+  if (!supabaseClient || !userId) {
+    state.positions = {};
+    state.trades = [];
+    return;
+  }
+  const [{ data: positions }, { data: trades }] = await Promise.all([
+    supabaseClient.from("positions").select("*").eq("user_id", userId),
+    supabaseClient
+      .from("trades")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(200),
+  ]);
+  const nextPositions = {};
+  (positions || []).forEach((p) => {
+    nextPositions[positionKey(p.user_id, p.market_id, p.side)] = {
+      userId: p.user_id,
+      marketId: p.market_id,
+      side: p.side,
+      shares: Number(p.shares),
+      cost: Number(p.cost),
+    };
+  });
+  state.positions = nextPositions;
+  state.trades = (trades || []).map((t) => ({
+    id: t.id,
+    userId: t.user_id,
+    marketId: t.market_id,
+    side: t.side,
+    amount: Number(t.amount),
+    shares: Number(t.shares),
+    price: Number(t.price),
+    at: new Date(t.created_at).getTime(),
+  }));
 }
 
 async function refreshSupabaseData() {
@@ -964,6 +1003,8 @@ async function refreshSupabaseData() {
     if (!market) return;
     market.history.push({ at: new Date(point.created_at).getTime(), probability: Number(point.probability) });
   });
+
+  await loadUserPositionsAndTrades(state.currentUserId);
 
   save();
   render();
@@ -1917,6 +1958,26 @@ function launchExitSadness() {
   }, 2400);
 }
 
+function isMobileMode() {
+  return window.matchMedia("(max-width: 768px)").matches;
+}
+
+function maybeRandomMobileConfetti() {
+  if (!isMobileMode()) return;
+  if (document.hidden) return;
+  if ($$("dialog").some((dialog) => dialog.open)) return;
+  if (Math.random() < 0.7) launchMarketConfetti();
+  else launchExitSadness();
+}
+
+function scheduleRandomMobileConfetti() {
+  const delay = 30_000 + Math.random() * 60_000;
+  window.setTimeout(() => {
+    maybeRandomMobileConfetti();
+    scheduleRandomMobileConfetti();
+  }, delay);
+}
+
 function generateProposals() {
   const raw = $("#proposalText").value.trim();
   if (!raw) return toast("Paste some Slack or Notion text first.");
@@ -2143,6 +2204,7 @@ function bindEvents() {
     window.addEventListener(eventName, resetIdleTimer, { passive: true });
   });
   resetIdleTimer();
+  scheduleRandomMobileConfetti();
 }
 
 function activateView(view) {
@@ -2214,13 +2276,13 @@ function readableAuthError(error) {
     return "Supabase is waiting for email confirmation, so the app cannot create the game profile yet. Turn OFF Authentication -> Providers -> Email -> Confirm email for the Live Beta, then try again.";
   }
   if (raw.includes("invalid login credentials")) {
-    return "Wrong username or password. If you created this username during the earlier broken signup flow, delete that test user in Supabase Authentication -> Users and create it again.";
+    return "Wrong username or password.";
   }
   if (raw.includes("create_profile_for_current_user") || raw.includes("update_my_profile") || raw.includes("schema cache")) {
     return "The login worked, but Supabase is missing the latest profile RPC. Run supabase-repair.sql again in the Supabase SQL Editor, then reload and try again.";
   }
   if (raw.includes("already") || raw.includes("registered")) {
-    return "This account already exists. Switch to Log in and use the same username/password, or delete the test user in Supabase Authentication -> Users and create it again.";
+    return "That username is taken. Switch to Log in instead.";
   }
   return error?.message || "Could not log in.";
 }
