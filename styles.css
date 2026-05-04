@@ -1,18 +1,19 @@
 :root {
-  color-scheme: light;
-  --bg: #f4f4f6;
-  --ink: #00095b;
-  --text: #1a1a1a;
-  --muted: #737373;
-  --panel: #ffffff;
-  --line: #d9dbe6;
-  --accent: #1a2fee;
+  color-scheme: dark;
+  --bg: #0b0e1a;
+  --ink: #f1f3fb;
+  --text: #d8dbe8;
+  --muted: #8a93ac;
+  --panel: #161b2e;
+  --soft: #1f2541;
+  --line: #2b314a;
+  --accent: #6c7cff;
   --accent-2: #e2ec2b;
-  --accent-3: #7582f6;
-  --accent-4: #00b8d9;
-  --good: #147b53;
-  --bad: #c33b2f;
-  --shadow: 0 18px 50px rgba(0, 9, 91, 0.12);
+  --accent-3: #9aa6ff;
+  --accent-4: #5edcf3;
+  --good: #4cd99e;
+  --bad: #ff7a6e;
+  --shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
 }
 
 * {
@@ -110,7 +111,7 @@ h2 {
   height: 42px;
   border: 1px solid rgba(26, 47, 238, 0.18);
   border-radius: 50%;
-  background: #ffffff;
+  background: var(--soft);
   box-shadow: 0 8px 24px rgba(0, 9, 91, 0.1);
   color: var(--ink);
   font-size: 22px;
@@ -127,7 +128,7 @@ h2 {
   min-height: 34px;
   border-radius: 99px;
   padding: 0 12px;
-  background: #eceefe;
+  background: var(--soft);
   color: var(--muted);
   font-size: 12px;
   font-weight: 950;
@@ -229,7 +230,7 @@ body[data-active-view="tutorial"] .content {
   padding: 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #f8f8fb;
+  background: var(--soft);
 }
 
 .mini-grid strong,
@@ -265,7 +266,7 @@ body[data-active-view="tutorial"] .content {
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #f8f8fb;
+  background: var(--soft);
 }
 
 .level-card > div:first-child {
@@ -284,7 +285,7 @@ body[data-active-view="tutorial"] .content {
   height: 12px;
   overflow: hidden;
   border-radius: 99px;
-  background: #e5e7f2;
+  background: var(--soft);
 }
 
 .xp-track span {
@@ -309,7 +310,7 @@ body[data-active-view="tutorial"] .content {
   padding: 9px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fbfbff;
+  background: var(--soft);
 }
 
 .mission-check {
@@ -318,7 +319,7 @@ body[data-active-view="tutorial"] .content {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: #e5e7f2;
+  background: var(--soft);
   color: var(--ink);
   font-size: 12px;
   font-weight: 950;
@@ -364,7 +365,7 @@ body[data-active-view="tutorial"] .content {
   padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: 99px;
-  background: #fbfbff;
+  background: var(--soft);
   color: var(--ink);
   font-size: 12px;
   font-weight: 900;
@@ -428,7 +429,7 @@ body[data-active-view="tutorial"] .content {
 .tab,
 .quick-stakes button,
 .icon-button {
-  background: #eceefe;
+  background: var(--soft);
   color: var(--ink);
 }
 
@@ -440,7 +441,7 @@ body[data-active-view="tutorial"] .content {
   display: flex;
   gap: 8px;
   padding: 6px;
-  background: #e8eaff;
+  background: var(--soft);
   border-radius: 8px;
   border: 1px solid var(--line);
 }
@@ -620,7 +621,7 @@ body[data-active-view="tutorial"] .content {
   align-content: start;
   padding: 14px;
   border-radius: 8px;
-  background: #f8f8fb;
+  background: var(--soft);
   border: 1px solid var(--line);
 }
 
@@ -663,7 +664,7 @@ body[data-active-view="tutorial"] .content {
   height: 14px;
   overflow: hidden;
   border-radius: 99px;
-  background: #e5e7f2;
+  background: var(--soft);
 }
 
 .mock-prob span {
@@ -726,7 +727,7 @@ body[data-active-view="tutorial"] .content {
   padding: 14px;
   border-radius: 8px;
   border: 1px solid var(--line);
-  background: #f8f8fb;
+  background: var(--soft);
 }
 
 .timeline span {
@@ -820,7 +821,7 @@ body[data-active-view="tutorial"] .content {
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #f8f8fb;
+  background: var(--soft);
   text-align: left;
 }
 
@@ -860,7 +861,7 @@ textarea {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--soft);
   color: var(--text);
   padding: 11px 12px;
   outline: none;
@@ -923,7 +924,7 @@ textarea:focus {
   min-height: 24px;
   border-radius: 99px;
   padding: 0 9px;
-  background: #eceefe;
+  background: var(--soft);
   color: var(--muted);
   font-size: 12px;
   font-weight: 800;
@@ -959,7 +960,7 @@ textarea:focus {
   height: 12px;
   overflow: hidden;
   border-radius: 99px;
-  background: #e5e7f2;
+  background: var(--soft);
 }
 
 .prob-fill {
@@ -975,7 +976,7 @@ textarea:focus {
   padding: 10px;
   border: 1px solid #dfe5ff;
   border-radius: 8px;
-  background: #f7f9ff;
+  background: var(--soft);
 }
 
 .movement-strip-header {
@@ -1002,7 +1003,7 @@ textarea:focus {
   display: block;
   border: 0;
   border-radius: 6px;
-  background: #f7f9ff;
+  background: var(--soft);
 }
 
 .card-actions button {
@@ -1036,7 +1037,7 @@ textarea:focus {
   padding: 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fbfbff;
+  background: var(--soft);
 }
 
 .leaderboard li {
@@ -1132,7 +1133,7 @@ textarea:focus {
 
 .suggestion-card.spicy {
   border-color: rgba(195, 59, 47, 0.28);
-  background: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
+  background: linear-gradient(180deg, var(--panel) 0%, var(--soft) 100%);
 }
 
 .suggestion-card h3 {
@@ -1150,7 +1151,7 @@ textarea:focus {
 .spicy-note {
   padding: 10px;
   border-radius: 8px;
-  background: #f4f6ff;
+  background: var(--soft);
   border: 1px solid rgba(26, 47, 238, 0.18);
   color: var(--ink) !important;
   font-size: 13px;
@@ -1166,7 +1167,7 @@ textarea:focus {
 .option-grid button {
   min-height: 44px;
   border-radius: 8px;
-  background: #eceefe;
+  background: var(--soft);
   color: var(--ink);
   font-weight: 900;
   text-align: left;
@@ -1231,7 +1232,7 @@ textarea:focus {
   gap: 12px;
   padding: 9px 10px;
   border-radius: 8px;
-  background: #f4f6ff;
+  background: var(--soft);
   font-size: 13px;
 }
 
@@ -1276,7 +1277,7 @@ dialog::backdrop {
   padding: 4px;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: #f4f6ff;
+  background: var(--soft);
 }
 
 .segmented-control button {
@@ -1288,7 +1289,7 @@ dialog::backdrop {
 }
 
 .segmented-control button.active {
-  background: #ffffff;
+  background: var(--soft);
   color: var(--ink);
   box-shadow: 0 8px 20px rgba(0, 9, 91, 0.1);
 }
@@ -1305,7 +1306,7 @@ dialog::backdrop {
   aspect-ratio: 1;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: #ffffff;
+  background: var(--soft);
   font-size: 22px;
 }
 
@@ -1326,7 +1327,7 @@ dialog::backdrop {
   padding: 11px 12px;
   border-radius: 8px;
   border: 1px solid #c9d0ff;
-  background: #f4f6ff;
+  background: var(--soft);
   color: var(--ink);
   font-size: 13px;
   font-weight: 750;
@@ -1370,7 +1371,7 @@ label {
 .trade-preview div {
   padding: 12px;
   border-radius: 8px;
-  background: #f4f4ff;
+  background: var(--soft);
 }
 
 .trade-preview span,
@@ -1417,7 +1418,7 @@ label {
   min-height: 48px;
   padding: 12px;
   border-radius: 8px;
-  background: #f8f8fb;
+  background: var(--soft);
   color: var(--ink);
   font-weight: 900;
   text-align: center;
@@ -1441,7 +1442,7 @@ label {
   min-height: 28px;
   border-radius: 99px;
   padding: 0 10px;
-  background: #eceefe;
+  background: var(--soft);
   color: var(--muted);
   font-size: 12px;
   font-weight: 850;
@@ -1604,10 +1605,10 @@ label {
 }
 
 .rumor {
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border: 1px solid var(--line);
   border-radius: 14px;
   padding: 14px 16px;
-  background: rgba(255, 255, 255, 0.5);
+  background: var(--soft);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -1657,5 +1658,25 @@ label {
   align-items: center;
   gap: 14px;
   justify-content: space-between;
+}
+
+/* Dark-mode: ensure yellow accent pills stay readable */
+.connection-pill.live,
+.streak-pill,
+.badge-icon,
+.secondary,
+.intro-actions .primary {
+  color: #0b0e1a;
+}
+
+/* Search input in markets toolbar shouldn't get squeezed by selects */
+.toolbar select {
+  width: auto;
+  flex: 0 0 auto;
+}
+
+.search-wrap {
+  flex: 1 1 240px;
+  min-width: 200px;
 }
 

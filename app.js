@@ -894,6 +894,7 @@ async function bootstrapSupabase() {
     supabaseMode = true;
     await loadActivity();
     await loadRumors();
+    await loadHiddenSuggestions();
     setConnectionStatus("live", "Supabase live");
     save();
     render();
@@ -1008,6 +1009,7 @@ async function refreshSupabaseData() {
 
   await loadUserPositionsAndTrades(state.currentUserId);
   await loadActivity();
+  await loadHiddenSuggestions();
 
   save();
   render();
@@ -1277,10 +1279,12 @@ function renderGamification() {
 }
 
 function renderPersonas() {
+  const panel = document.querySelector(".persona-panel");
   if (supabaseMode) {
-    $("#personaList").innerHTML = `<p class="muted">Live mode: one real anonymous account per browser. Persona switching is disabled.</p>`;
+    if (panel) panel.classList.add("hidden");
     return;
   }
+  if (panel) panel.classList.remove("hidden");
   $("#personaList").innerHTML = state.users
     .map(
       (user) => `
@@ -1339,11 +1343,48 @@ function renderMarkets() {
 function filteredSuggestions() {
   const q = ($("#suggestionSearchInput")?.value || "").trim().toLowerCase();
   const type = $("#suggestionTypeFilter")?.value || "all";
+  const hidden = state.hiddenSuggestionIds || [];
   return MARKET_SUGGESTIONS.filter((suggestion) => {
+    if (hidden.includes(suggestion.id)) return false;
     const typeMatch = type === "all" || suggestion.type === type || (type === "multiple" && suggestion.options?.length);
     const queryText = `${suggestion.title} ${suggestion.criteria} ${(suggestion.options || []).join(" ")}`.toLowerCase();
     return typeMatch && (!q || queryText.includes(q));
   });
+}
+
+async function loadHiddenSuggestions() {
+  if (!supabaseClient || !supabaseMode) {
+    state.hiddenSuggestionIds = [];
+    return;
+  }
+  const { data, error } = await supabaseClient
+    .from("suggestion_blocklist")
+    .select("suggestion_id");
+  if (error) {
+    console.error("Failed to load suggestion blocklist:", error);
+    state.hiddenSuggestionIds = [];
+    return;
+  }
+  state.hiddenSuggestionIds = (data || []).map((row) => row.suggestion_id);
+}
+
+async function deleteSuggestion(suggestionId) {
+  if (!supabaseMode || !supabaseClient) return;
+  if (!currentUser()?.isAdmin) {
+    toast("Admin only.");
+    return;
+  }
+  if (!confirm("Hide this suggestion from everyone? Other admins can re-enable it later by removing the row from suggestion_blocklist.")) return;
+  const { error } = await supabaseClient
+    .from("suggestion_blocklist")
+    .insert({ suggestion_id: suggestionId, hidden_by: state.currentUserId });
+  if (error) {
+    toast(`Failed to delete: ${error.message}`);
+    return;
+  }
+  await loadHiddenSuggestions();
+  render();
+  toast("Suggestion hidden.");
 }
 
 function renderSuggestions() {
@@ -1430,9 +1471,10 @@ function drawSparkline(id, history) {
   const w = canvas.width;
   const h = canvas.height;
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = "#f7f9ff";
+  const cssStyles = getComputedStyle(document.documentElement);
+  ctx.fillStyle = cssStyles.getPropertyValue("--soft").trim() || "#1f2541";
   ctx.fillRect(0, 0, w, h);
-  ctx.strokeStyle = "#dfe5ff";
+  ctx.strokeStyle = cssStyles.getPropertyValue("--line").trim() || "#2b314a";
   ctx.lineWidth = 1;
   for (let i = 1; i < 4; i += 1) {
     const y = (h / 4) * i;
@@ -1767,7 +1809,35 @@ function renderAdmin() {
     `
     )
     .join("");
-  $("#adminList").innerHTML = userList + marketList;
+
+  const visibleSuggestions = filteredSuggestions();
+  const suggestionList =
+    supabaseMode && currentUser().isAdmin
+      ? `
+        <div class="admin-item">
+          <div class="admin-row">
+            <div>
+              <strong>Suggestions</strong>
+              <div class="muted">Delete removes the suggestion from everyone's Suggestions tab.</div>
+            </div>
+            <span class="tag">${visibleSuggestions.length} active</span>
+          </div>
+          <div class="user-admin-list">
+            ${visibleSuggestions
+              .map(
+                (suggestion) => `
+                <div>
+                  <span>${esc(suggestion.title)}</span>
+                  <button class="ghost rumor-action" data-suggestion-delete="${esc(suggestion.id)}">Delete</button>
+                </div>`
+              )
+              .join("")}
+          </div>
+        </div>
+      `
+      : "";
+
+  $("#adminList").innerHTML = userList + marketList + suggestionList;
 }
 
 async function placeTrade(marketId, side, amount) {
@@ -2406,6 +2476,12 @@ function bindEvents() {
 
     const detailBtn = event.target.closest("[data-market-detail]");
     if (detailBtn) showMarketDetail(detailBtn.dataset.marketDetail);
+
+    const suggestionDelete = event.target.closest("[data-suggestion-delete]");
+    if (suggestionDelete) {
+      deleteSuggestion(suggestionDelete.dataset.suggestionDelete);
+      return;
+    }
 
     const rumorAction = event.target.closest("[data-rumor-id]");
     if (rumorAction) {
