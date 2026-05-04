@@ -1091,9 +1091,9 @@ function recordNetWorthSnapshot() {
 }
 
 function applyIntroVisibility() {
-  const hidden = localStorage.getItem("signal-floor-intro-hidden") === "true";
-  document.querySelector(".intro-hero")?.classList.toggle("hidden", hidden);
-  document.querySelector(".start-strip")?.classList.toggle("hidden", hidden);
+  // The localStorage flag now only decides the default tab on bootstrap;
+  // we leave the Start panel and 01/02/03 strip visible so users who go
+  // back to Start still see the welcome material and the quick actions.
 }
 
 function edgeScore(user) {
@@ -2668,6 +2668,17 @@ function bindEvents() {
     const detailBtn = event.target.closest("[data-market-detail]");
     if (detailBtn) showMarketDetail(detailBtn.dataset.marketDetail);
 
+    const quickAction = event.target.closest("[data-quick]");
+    if (quickAction) {
+      const action = quickAction.dataset.quick;
+      if (action === "create-bet") openCreateDialog();
+      else if (action === "post-rumor") {
+        activateView("rumors");
+        window.requestAnimationFrame(() => $("#rumorInput")?.focus());
+      } else if (action === "browse") activateView("list");
+      else if (action === "pulse") activateView("radar");
+    }
+
     const suggestionDelete = event.target.closest("[data-suggestion-delete]");
     if (suggestionDelete) {
       deleteSuggestion(suggestionDelete.dataset.suggestionDelete);
@@ -2779,7 +2790,7 @@ function bindEvents() {
     localStorage.setItem("signal-floor-intro-hidden", "true");
     applyIntroVisibility();
     activateView("list");
-    toast("Intro hidden. Overview is now your default.");
+    toast("Overview is now your default tab. Start still has everything if you want it.");
   });
   applyIntroVisibility();
   if (localStorage.getItem("signal-floor-intro-hidden") === "true" && document.body.dataset.activeView !== "list") {
