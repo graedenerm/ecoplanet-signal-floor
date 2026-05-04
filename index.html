@@ -35,13 +35,13 @@
             <div class="big-number" id="walletBalance">0</div>
             <div class="muted">credits available</div>
             <div class="mini-grid">
-              <div title="Current value of your open bets at today's prices">
+              <div>
                 <strong id="portfolioValue">0</strong>
-                <span>in play</span>
+                <span>in play <span class="metric-info" data-tip="Today's value of your open bets at current prices. Goes up when prices move in your favour, down when they don't. Locks in only when the bet resolves.">?</span></span>
               </div>
-              <div title="Wallet plus the value of your open bets">
+              <div>
                 <strong id="edgeScore">0</strong>
-                <span>net worth</span>
+                <span>net worth <span class="metric-info" data-tip="Wallet credits plus the current value of your open bets. This is what the leaderboard ranks by.">?</span></span>
               </div>
             </div>
             <button id="airdropBtn" class="full">Weekly token drop</button>
@@ -113,7 +113,7 @@
               <div class="intro-metric">
                 <span>Current office consensus</span>
                 <strong id="overviewConsensus">58%</strong>
-                <small>YES probability on the hottest question</small>
+                <small id="overviewConsensusBet">on the hottest bet right now</small>
               </div>
             </section>
 

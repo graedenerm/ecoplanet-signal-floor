@@ -1248,8 +1248,18 @@ function renderClosingSoon() {
 }
 
 function renderOverview() {
-  const hottest = [...state.markets].sort((a, b) => b.volume - a.volume)[0];
-  $("#overviewConsensus").textContent = hottest ? pct(probability(hottest)) : "50%";
+  const open = state.markets.filter((m) => m.status === "open");
+  const hottest = [...open].sort((a, b) => b.volume - a.volume)[0];
+  $("#overviewConsensus").textContent = hottest ? pct(probability(hottest)) : "—";
+  const sub = $("#overviewConsensusBet");
+  if (sub) {
+    if (!hottest) {
+      sub.textContent = "No open bets yet";
+    } else {
+      const truncated = hottest.title.length > 70 ? hottest.title.slice(0, 67) + "…" : hottest.title;
+      sub.textContent = `YES on "${truncated}"`;
+    }
+  }
 }
 
 function renderUser() {
