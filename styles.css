@@ -167,17 +167,14 @@ h2 {
   align-items: start;
 }
 
-body[data-active-view="overview"] .layout,
 body[data-active-view="tutorial"] .layout {
   grid-template-columns: 1fr;
 }
 
-body[data-active-view="overview"] .sidebar,
 body[data-active-view="tutorial"] .sidebar {
   display: none;
 }
 
-body[data-active-view="overview"] .content,
 body[data-active-view="tutorial"] .content {
   width: min(1120px, 100%);
   margin: 0 auto;
@@ -644,7 +641,7 @@ body[data-active-view="tutorial"] .content {
   min-height: 150px;
   padding: 14px;
   border-radius: 8px;
-  background: white;
+  background: var(--panel);
   border: 1px solid var(--line);
 }
 
@@ -664,7 +661,7 @@ body[data-active-view="tutorial"] .content {
   height: 14px;
   overflow: hidden;
   border-radius: 99px;
-  background: var(--soft);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .mock-prob span {
@@ -960,7 +957,7 @@ textarea:focus {
   height: 12px;
   overflow: hidden;
   border-radius: 99px;
-  background: var(--soft);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .prob-fill {
