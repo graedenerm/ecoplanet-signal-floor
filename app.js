@@ -803,7 +803,11 @@ function remoteMarketToLocal(market) {
     resolution: market.resolution,
     volume: Number(market.volume || 0),
     creatorId: market.creator_id,
-    history: [{ at: new Date(market.created_at).getTime(), probability: Number(market.yes_pool) / (Number(market.yes_pool) + Number(market.no_pool)) }],
+    // Real history rows are appended in bootstrapSupabase from the
+    // market_history table; we don't synthesize a point here so that
+    // the chart shows the actual price trajectory, not "current → past
+    // → current" zigzags.
+    history: [],
   };
 }
 
@@ -1479,9 +1483,12 @@ function drawSparkline(id, history) {
   const h = canvas.height;
   ctx.clearRect(0, 0, w, h);
   const cssStyles = getComputedStyle(document.documentElement);
-  ctx.fillStyle = cssStyles.getPropertyValue("--soft").trim() || "#1f2541";
+  const softColor = cssStyles.getPropertyValue("--soft").trim() || "#1f2541";
+  const lineColor = cssStyles.getPropertyValue("--line").trim() || "#2b314a";
+  const mutedColor = cssStyles.getPropertyValue("--muted").trim() || "#8a93ac";
+  ctx.fillStyle = softColor;
   ctx.fillRect(0, 0, w, h);
-  ctx.strokeStyle = cssStyles.getPropertyValue("--line").trim() || "#2b314a";
+  ctx.strokeStyle = lineColor;
   ctx.lineWidth = 1;
   for (let i = 1; i < 4; i += 1) {
     const y = (h / 4) * i;
@@ -1490,7 +1497,23 @@ function drawSparkline(id, history) {
     ctx.lineTo(w, y);
     ctx.stroke();
   }
-  if (history.length < 2) return;
+  ctx.fillStyle = mutedColor;
+  ctx.font = "11px Inter, ui-sans-serif, system-ui, sans-serif";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.fillText("100%", 6, 4);
+  ctx.textBaseline = "middle";
+  ctx.fillText("50%", 6, h / 2);
+  ctx.textBaseline = "bottom";
+  ctx.fillText("0%", 6, h - 4);
+  if (history.length < 2) {
+    ctx.fillStyle = mutedColor;
+    ctx.font = "12px Inter, ui-sans-serif, system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("No trades yet — be the first to bet.", w / 2, h / 2);
+    return;
+  }
   const start = history[0].probability;
   const end = history[history.length - 1].probability;
   const gradient = ctx.createLinearGradient(0, 0, w, 0);
@@ -1570,14 +1593,16 @@ function renderActivityFeed() {
   }
   list.innerHTML = state.activity
     .map((trade) => {
+      const isYou = trade.userId === state.currentUserId;
       const sideTag =
         trade.side === "yes"
           ? `<span class="delta">+${money(trade.amount)} YES</span>`
           : `<span class="delta down">${money(trade.amount)} NO</span>`;
+      const youBadge = isYou ? ` <span class="tag good">you</span>` : "";
       return `
         <div class="movement" role="button" tabindex="0" data-jump-market="${trade.marketId}" style="cursor:pointer;">
           <div>
-            <strong>${esc(trade.displayName)}</strong>
+            <strong>${esc(trade.avatar)} ${esc(trade.displayName)}${youBadge}</strong>
             <span class="muted">${esc(trade.marketTitle)} · ${pct(trade.price)} · ${timeAgo(trade.at)}</span>
           </div>
           ${sideTag}
