@@ -899,6 +899,7 @@ async function bootstrapSupabase() {
     await loadActivity();
     await loadRumors();
     await loadHiddenSuggestions();
+    recordNetWorthSnapshot();
     setConnectionStatus("live", "Supabase live");
     save();
     render();
@@ -1014,6 +1015,7 @@ async function refreshSupabaseData() {
   await loadUserPositionsAndTrades(state.currentUserId);
   await loadActivity();
   await loadHiddenSuggestions();
+  recordNetWorthSnapshot();
 
   save();
   render();
@@ -1064,6 +1066,34 @@ function portfolioValue(userId) {
 
 function netWorth(user) {
   return user.wallet + portfolioValue(user.id);
+}
+
+function recordNetWorthSnapshot() {
+  if (!supabaseMode) return;
+  const user = currentUser();
+  if (!user) return;
+  state.netWorthHistory ||= {};
+  state.netWorthHistory[user.id] ||= [];
+  const series = state.netWorthHistory[user.id];
+  const now = Date.now();
+  const value = netWorth(user);
+  const last = series[series.length - 1];
+  // Skip duplicate samples within 30s with the same value (rounding to 0.5)
+  if (last && now - last.at < 30_000 && Math.abs(last.netWorth - value) < 0.5) return;
+  series.push({
+    at: now,
+    netWorth: value,
+    wallet: user.wallet,
+    inPlay: portfolioValue(user.id),
+  });
+  if (series.length > 200) series.splice(0, series.length - 200);
+  save();
+}
+
+function applyIntroVisibility() {
+  const hidden = localStorage.getItem("signal-floor-intro-hidden") === "true";
+  document.querySelector(".intro-hero")?.classList.toggle("hidden", hidden);
+  document.querySelector(".start-strip")?.classList.toggle("hidden", hidden);
 }
 
 function edgeScore(user) {
@@ -1127,7 +1157,7 @@ function dailyMissions(user) {
     {
       id: "creator",
       title: "Drop a question",
-      detail: "Create or launch a market idea",
+      detail: "Create or launch a bet idea",
       reward: 80,
       complete: createdToday.length > 0,
     },
@@ -1141,7 +1171,7 @@ function badgeCatalog(user) {
   return [
     { id: "first_trade", label: "First call", icon: "1", earned: trades.length >= 1 },
     { id: "three_day", label: "3-day signal", icon: "3", earned: user.game.streak >= 3 },
-    { id: "market_maker", label: "Market maker", icon: "+", earned: created.length >= 1 },
+    { id: "market_maker", label: "Bet maker", icon: "+", earned: created.length >= 1 },
     { id: "rumor_hunter", label: "Rumor hunter", icon: "R", earned: rumorTrades.length >= 2 },
     { id: "big_swing", label: "Big swing", icon: "B", earned: trades.some((trade) => trade.amount >= 250) },
     { id: "diversified", label: "Diversified", icon: "D", earned: openPositions(user.id).length >= 3 },
@@ -1177,6 +1207,7 @@ function render() {
   renderRumors();
   renderActivityFeed();
   renderPositions();
+  drawNetWorthChart();
   renderAdmin();
 }
 
@@ -1195,7 +1226,7 @@ function renderClosingSoon() {
     .slice(0, 5);
 
   if (!soon.length) {
-    list.innerHTML = `<p class="muted">No open markets closing soon.</p>`;
+    list.innerHTML = `<p class="muted">No open bets closing soon.</p>`;
     return;
   }
 
@@ -1408,7 +1439,7 @@ function renderSuggestionCard(suggestion) {
           .map((option) => `<button data-suggestion-option="${suggestion.id}" data-option="${esc(option)}">${esc(option)}</button>`)
           .join("")}
       </div>`
-    : `<button class="primary" data-suggestion="${suggestion.id}">Launch market</button>`;
+    : `<button class="primary" data-suggestion="${suggestion.id}">Launch bet</button>`;
   return `
     <article class="suggestion-card ${suggestion.type === "spicy" ? "spicy" : ""}">
       <div class="tag-row">
@@ -1429,8 +1460,14 @@ function renderMarketCard(market) {
   const p = probability(market);
   const move = marketMove(market);
   const closed = market.status !== "open";
-  const myYes = getPosition(state.currentUserId, market.id, "yes").shares;
-  const myNo = getPosition(state.currentUserId, market.id, "no").shares;
+  const yesPos = getPosition(state.currentUserId, market.id, "yes");
+  const noPos = getPosition(state.currentUserId, market.id, "no");
+  const positionParts = [];
+  if (yesPos.cost > 0.01) positionParts.push(`YES ${money(yesPos.cost)}`);
+  if (noPos.cost > 0.01) positionParts.push(`NO ${money(noPos.cost)}`);
+  const positionTag = positionParts.length
+    ? `<span class="tag good">You bet ${positionParts.join(" + ")}</span>`
+    : "";
   const movePts = Math.round(move * 100);
   const hasMovement = movePts !== 0;
   const moveTag = hasMovement
@@ -1457,7 +1494,7 @@ function renderMarketCard(market) {
       <div class="prob-bar"><div class="prob-fill" style="width:${p * 100}%"></div></div>
       <div class="movement-strip">
         <div class="movement-strip-header">
-          <span>Market movement</span>
+          <span>Price movement</span>
           <strong>${moveLabel}</strong>
         </div>
         <canvas class="sparkline" id="spark-${market.id}" width="600" height="132"></canvas>
@@ -1465,7 +1502,7 @@ function renderMarketCard(market) {
       <p class="muted">${esc(market.criteria)}</p>
       <div class="tag-row">
         <span class="tag">Closes ${market.closeDate}</span>
-        <span class="tag">You: YES ${myYes.toFixed(1)} / NO ${myNo.toFixed(1)}</span>
+        ${positionTag}
       </div>
       <div class="card-actions">
         <button class="yes-btn" data-trade="${market.id}" data-side="yes" ${closed ? "disabled" : ""}>Buy YES</button>
@@ -1540,6 +1577,107 @@ function drawSparkline(id, history) {
   ctx.beginPath();
   ctx.arc(x, y, 7, 0, Math.PI * 2);
   ctx.fill();
+}
+
+function drawNetWorthChart() {
+  const canvas = $("#netWorthChart");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  const styles = getComputedStyle(document.documentElement);
+  const softColor = styles.getPropertyValue("--soft").trim() || "#1f2541";
+  const lineColor = styles.getPropertyValue("--line").trim() || "#2b314a";
+  const mutedColor = styles.getPropertyValue("--muted").trim() || "#8a93ac";
+  const goodColor = styles.getPropertyValue("--good").trim() || "#4cd99e";
+  const badColor = styles.getPropertyValue("--bad").trim() || "#ff7a6e";
+
+  ctx.fillStyle = softColor;
+  ctx.fillRect(0, 0, w, h);
+  ctx.strokeStyle = lineColor;
+  ctx.lineWidth = 1;
+  for (let i = 1; i < 4; i += 1) {
+    const y = (h / 4) * i;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(w, y);
+    ctx.stroke();
+  }
+
+  const user = currentUser();
+  const history = (user && (state.netWorthHistory || {})[user.id]) || [];
+
+  if (history.length < 2) {
+    ctx.fillStyle = mutedColor;
+    ctx.font = "13px Inter, ui-sans-serif, system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("Place a few bets — your net-worth chart will fill in over time.", w / 2, h / 2);
+    return;
+  }
+
+  const values = history.map((p) => p.netWorth);
+  const dataMin = Math.min(...values);
+  const dataMax = Math.max(...values);
+  const padding = Math.max(50, (dataMax - dataMin) * 0.1);
+  const min = Math.min(dataMin, 1000) - padding;
+  const max = Math.max(dataMax, 1000) + padding;
+  const range = Math.max(1, max - min);
+
+  if (1000 >= min && 1000 <= max) {
+    const baselineY = h - ((1000 - min) / range) * (h - 24) - 12;
+    ctx.strokeStyle = lineColor;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(0, baselineY);
+    ctx.lineTo(w, baselineY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = mutedColor;
+    ctx.font = "10px Inter, ui-sans-serif, system-ui, sans-serif";
+    ctx.textAlign = "right";
+    ctx.textBaseline = "bottom";
+    ctx.fillText("1000 start", w - 8, baselineY - 4);
+  }
+
+  const last = history[history.length - 1];
+  const isUp = last.netWorth >= 1000;
+  const lineCol = isUp ? goodColor : badColor;
+  ctx.strokeStyle = lineCol;
+  ctx.lineWidth = 4;
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  history.forEach((point, idx) => {
+    const x = 60 + (idx / Math.max(1, history.length - 1)) * (w - 120);
+    const y = h - ((point.netWorth - min) / range) * (h - 24) - 12;
+    if (idx === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  const endX = w - 60;
+  const endY = h - ((last.netWorth - min) / range) * (h - 24) - 12;
+  ctx.fillStyle = lineCol;
+  ctx.beginPath();
+  ctx.arc(endX, endY, 6, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = mutedColor;
+  ctx.font = "11px Inter, ui-sans-serif, system-ui, sans-serif";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.fillText(money(Math.round(max)), 6, 4);
+  ctx.textBaseline = "bottom";
+  ctx.fillText(money(Math.round(min)), 6, h - 4);
+
+  ctx.fillStyle = lineCol;
+  ctx.font = "bold 14px Inter, ui-sans-serif, system-ui, sans-serif";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText(money(Math.round(last.netWorth)), endX + 10, endY);
 }
 
 function timeAgo(ms) {
@@ -1675,7 +1813,7 @@ function renderRumors() {
           <p>${esc(rumor.body)}</p>
           <div class="rumor-meta">
             <span class="muted">${timeAgo(rumor.createdAt)}</span>
-            <button type="button" class="ghost rumor-action" data-rumor-id="${rumor.id}">Make this a market</button>
+            <button type="button" class="ghost rumor-action" data-rumor-id="${rumor.id}">Make this a bet</button>
           </div>
         </div>`
     )
@@ -1694,7 +1832,7 @@ function renderCompactList() {
     .sort((a, b) => new Date(a.closeDate) - new Date(b.closeDate));
 
   if (!markets.length) {
-    list.innerHTML = `<p class="muted">No matching markets.</p>`;
+    list.innerHTML = `<p class="muted">No matching bets.</p>`;
     return;
   }
 
@@ -1703,11 +1841,15 @@ function renderCompactList() {
       const closeMs = new Date(`${m.closeDate}T18:00:00`).getTime();
       const daysLeft = Math.max(0, Math.ceil((closeMs - Date.now()) / 86400000));
       const closeLabel = daysLeft === 0 ? "today" : daysLeft === 1 ? "tomorrow" : `${daysLeft}d`;
+      const yesPos = getPosition(state.currentUserId, m.id, "yes");
+      const noPos = getPosition(state.currentUserId, m.id, "no");
+      const totalBet = yesPos.cost + noPos.cost;
+      const youTag = totalBet > 0.01 ? ` · <span class="delta">you bet ${money(totalBet)}</span>` : "";
       return `
         <div class="movement" role="button" tabindex="0" data-market-detail="${m.id}" style="cursor:pointer;">
           <div>
             <strong>${esc(m.title)}</strong>
-            <span class="muted">${pct(probability(m))} YES · ${esc(m.category)} · closes ${closeLabel}</span>
+            <span class="muted">${pct(probability(m))} YES · ${esc(m.category)} · closes ${closeLabel}${youTag}</span>
           </div>
           <span class="delta">→</span>
         </div>`;
@@ -1722,7 +1864,7 @@ function showMarketDetail(marketId) {
   if (!market) return;
   currentDetailMarketId = marketId;
   $("#detailTitle").textContent = market.title;
-  $("#detailCategory").textContent = `${market.category} market`;
+  $("#detailCategory").textContent = `${market.category} bet`;
   $("#detailProbability").textContent = pct(probability(market));
   $("#detailCriteria").textContent = market.criteria;
 
@@ -1778,7 +1920,7 @@ function renderPositions() {
         <div class="position">
           <div class="position-row">
             <div>
-              <strong>${esc(market?.title || "Market")}</strong>
+              <strong>${esc(market?.title || "Bet")}</strong>
               <div class="muted">
                 <span class="tag ${sideClass}">${pos.side.toUpperCase()}</span>
                 ${valueLine}
@@ -1883,7 +2025,7 @@ async function placeTrade(marketId, side, amount) {
   const market = state.markets.find((item) => item.id === marketId);
   const user = currentUser();
   if (!market || market.status !== "open") {
-    toast("Market is closed.");
+    toast("Bet is closed.");
     return false;
   }
   if (amount <= 0 || amount > user.wallet) {
@@ -1944,7 +2086,7 @@ async function resolveMarket(marketId, result) {
     const { error } = await supabaseClient.rpc("resolve_market", { p_market_id: marketId, p_result: result });
     if (error) return toast(`Resolve failed: ${error.message}`);
     await refreshSupabaseData();
-    toast(result === "void" ? "Market voided and stakes returned." : `Resolved ${result.toUpperCase()}. Payouts posted.`);
+    toast(result === "void" ? "Bet voided and stakes returned." : `Resolved ${result.toUpperCase()}. Payouts posted.`);
     return;
   }
 
@@ -1985,7 +2127,7 @@ async function createMarket({ title, criteria, category, closeDate, initialProba
       volume: 0,
     });
     if (error) {
-      toast(`Market failed: ${error.message}`);
+      toast(`Bet failed: ${error.message}`);
       return false;
     }
     const user = currentUser();
@@ -1994,7 +2136,7 @@ async function createMarket({ title, criteria, category, closeDate, initialProba
     await refreshSupabaseData();
     pulseSpark();
     launchMarketConfetti();
-    toast("Market launched.");
+    toast("Bet launched.");
     return true;
   }
 
@@ -2617,6 +2759,13 @@ function bindEvents() {
   });
   resetIdleTimer();
   scheduleRandomMobileConfetti();
+
+  $("#hideIntroBtn")?.addEventListener("click", () => {
+    localStorage.setItem("signal-floor-intro-hidden", "true");
+    applyIntroVisibility();
+    toast("Intro hidden on this device.");
+  });
+  applyIntroVisibility();
 }
 
 function activateView(view) {

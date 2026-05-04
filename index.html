@@ -24,7 +24,7 @@
           <button class="ghost hidden" id="signOutBtn">Sign out</button>
           <button class="ghost" id="newPersonaBtn" title="Create another anonymous profile">New persona</button>
           <button class="ghost" id="howItWorksBtn">How it works</button>
-          <button class="primary" id="openCreateBtn">Create market</button>
+          <button class="primary" id="openCreateBtn">Create bet</button>
         </div>
       </header>
 
@@ -87,7 +87,7 @@
           <nav class="tabs" aria-label="Views">
             <button class="tab active" data-view="overview">Start</button>
             <button class="tab" data-view="list">Overview</button>
-            <button class="tab" data-view="markets">Markets</button>
+            <button class="tab" data-view="markets">Bets</button>
             <button class="tab" data-view="suggestions">Suggestions</button>
             <button class="tab" data-view="rumors">Rumors</button>
             <button class="tab" data-view="radar">Pulse</button>
@@ -106,7 +106,8 @@
                 </p>
                 <div class="intro-actions">
                   <button class="primary" id="startTutorialBtn">Learn the rules</button>
-                  <button class="ghost" id="startTradingBtn">See markets</button>
+                  <button class="ghost" id="startTradingBtn">See bets</button>
+                  <button class="ghost" id="hideIntroBtn" title="Hide the welcome panel on this device">Got it, hide tour</button>
                 </div>
               </div>
               <div class="intro-metric">
@@ -137,7 +138,7 @@
             <section class="panel closing-soon-panel">
               <div class="panel-header">
                 <p class="panel-label">Closing soon</p>
-                <span class="muted">Tap a market to jump there</span>
+                <span class="muted">Tap a bet to jump there</span>
               </div>
               <div id="closingSoonList" class="movement-list"></div>
             </section>
@@ -159,7 +160,7 @@
             <section class="tutorial-section">
               <div class="section-title">
                 <p class="panel-label">The basic idea</p>
-                <h3>Every market is just a yes/no question.</h3>
+                <h3>Every bet is just a yes/no question.</h3>
               </div>
               <div class="visual-walkthrough">
                 <article class="visual-card">
@@ -172,7 +173,7 @@
                     <small>64% YES</small>
                   </div>
                   <h4>Question</h4>
-                  <p>A good market asks something clear enough that everyone understands what YES means.</p>
+                  <p>A good bet asks something clear enough that everyone understands what YES means.</p>
                 </article>
                 <article class="visual-card">
                   <div class="mock-choice">
@@ -200,7 +201,7 @@
               <div class="timeline">
                 <div>
                   <span>1</span>
-                  <strong>A market is created</strong>
+                  <strong>A bet is created</strong>
                   <p>“Will we announce a new customer logo before the next all-hands?”</p>
                 </div>
                 <div>
@@ -215,7 +216,7 @@
                 </div>
                 <div>
                   <span>4</span>
-                  <strong>The market resolves</strong>
+                  <strong>The bet resolves</strong>
                   <p>If the customer is announced, YES wins. If not, NO wins. Void means stakes are returned.</p>
                 </div>
               </div>
@@ -287,14 +288,14 @@
                 </details>
                 <details>
                   <summary>How do I actually win credits?</summary>
-                  <p>When you Buy YES, you get YES shares at the current price. If YES is at 60%, each share costs 0.60 credits. If the market resolves YES, every YES share pays 1 credit — so a share you bought at 0.60 pays 1, a profit of 0.40. If it resolves NO, your YES shares are worth zero and you lose what you spent. The same in reverse for NO.</p>
+                  <p>When you Buy YES, you get YES shares at the current price. If YES is at 60%, each share costs 0.60 credits. If the bet resolves YES, every YES share pays 1 credit — so a share you bought at 0.60 pays 1, a profit of 0.40. If it resolves NO, your YES shares are worth zero and you lose what you spent. The same in reverse for NO.</p>
                 </details>
                 <details>
                   <summary>Why does the probability change?</summary>
-                  <p>Because trades move the market. More YES buying pushes the YES probability up. More NO buying pushes it down. Watching the chart over time is the whole game — that line is the company's collective gut feeling, made visible.</p>
+                  <p>Because votes move the bet. More YES buying pushes the YES probability up. More NO buying pushes it down. Watching the chart over time is the whole game — that line is the company's collective gut feeling, made visible.</p>
                 </details>
                 <details>
-                  <summary>What happens when a market ends?</summary>
+                  <summary>What happens when a bet ends?</summary>
                   <p>The admin resolves it as YES, NO, or Void. Winners get paid in credits, losers don't. Void means the question turned out to be unanswerable, and everyone gets their stake back.</p>
                 </details>
                 <details>
@@ -303,11 +304,11 @@
                 </details>
                 <details>
                   <summary>What's the Rumors tab for?</summary>
-                  <p>It's an anonymous wall for office whispers. You can post a rumor without your display name attached — only the admin can ever see who posted what (for moderation if it gets ugly). Hit "Make this a market" on a rumor to spin it into a bet.</p>
+                  <p>It's an anonymous wall for office whispers. You can post a rumor without your display name attached — only the admin can ever see who posted what (for moderation if it gets ugly). Hit "Make this a bet" on a rumor to spin it into a bet.</p>
                 </details>
                 <details>
                   <summary>What should we avoid?</summary>
-                  <p>Keep markets focused on public company signals. No protected characteristics, health, salary, or personal attacks. If a market or rumor crosses a line, the admin will void or delete it.</p>
+                  <p>Keep bets focused on public company signals. No protected characteristics, health, salary, or personal attacks. If a bet or rumor crosses a line, the admin will void or delete it.</p>
                 </details>
               </div>
             </section>
@@ -316,7 +317,7 @@
           <section id="marketsView" class="view">
             <div class="toolbar">
               <div class="search-wrap">
-                <input id="searchInput" placeholder="Search markets, rumors, teams..." />
+                <input id="searchInput" placeholder="Search bets, rumors, teams..." />
               </div>
               <select id="categoryFilter">
                 <option value="all">All categories</option>
@@ -338,11 +339,11 @@
           <section id="suggestionsView" class="view">
             <section class="suggestions-hero">
               <div>
-                <p class="eyebrow">Market queue</p>
+                <p class="eyebrow">Bet queue</p>
                 <h2>Suggested bets</h2>
                 <p>
                   Clean ideas from Slack patterns and sales signals. Binary ideas launch directly. Multiple-choice ideas launch
-                  as one YES/NO market per outcome until the full multi-outcome engine is built.
+                  as one YES/NO bet per outcome until the full multi-outcome engine is built.
                 </p>
               </div>
               <button class="primary" id="launchTopSuggestionsBtn">Launch top 3</button>
@@ -392,7 +393,7 @@
           <section id="listView" class="view">
             <div class="toolbar">
               <div class="search-wrap">
-                <input id="listSearchInput" type="search" placeholder="Search markets..." />
+                <input id="listSearchInput" type="search" placeholder="Search bets..." />
               </div>
               <select id="listCategoryFilter">
                 <option value="all">All categories</option>
@@ -406,6 +407,13 @@
           </section>
 
           <section id="portfolioView" class="view">
+            <section class="panel wide">
+              <div class="panel-header">
+                <p class="panel-label">Net worth over time</p>
+                <span class="muted">Wallet plus the value of your open bets</span>
+              </div>
+              <canvas id="netWorthChart" width="800" height="180"></canvas>
+            </section>
             <section class="panel wide">
               <p class="panel-label">Open positions</p>
               <div id="positionsList" class="positions-list"></div>
@@ -467,9 +475,9 @@
         <div class="dialog-header">
           <div>
             <p class="eyebrow">New signal</p>
-            <h2>Create a market</h2>
+            <h2>Create a bet</h2>
           </div>
-          <button type="button" class="icon-button" data-close-dialog="marketDialog" aria-label="Close create market dialog">x</button>
+          <button type="button" class="icon-button" data-close-dialog="marketDialog" aria-label="Close create bet dialog">x</button>
         </div>
         <label>
           Question
@@ -500,17 +508,17 @@
           <label>
             Initial YES %
             <input id="marketProbInput" type="number" min="5" max="95" value="50" />
-            <small class="muted">Where the market starts before anyone bets. 50 = "no opinion yet". Higher if you think YES is likely.</small>
+            <small class="muted">Where the bet starts before anyone votes. 50 = "no opinion yet". Higher if you think YES is likely.</small>
           </label>
           <label>
             Liquidity
             <input id="marketLiquidityInput" type="number" min="100" step="100" value="1000" />
-            <small class="muted">How much it takes to move the price. Higher = harder for one bet to swing the market.</small>
+            <small class="muted">How much it takes to move the price. Higher = harder for one vote to swing the price.</small>
           </label>
         </div>
         <div class="dialog-actions">
           <button type="button" data-close-dialog="marketDialog" class="ghost">Cancel</button>
-          <button id="saveMarketBtn" value="default" class="primary">Launch market</button>
+          <button id="saveMarketBtn" value="default" class="primary">Launch bet</button>
         </div>
       </form>
     </dialog>
@@ -520,7 +528,7 @@
         <div class="dialog-header">
           <div>
             <p class="eyebrow" id="tradeSideLabel">Trade</p>
-            <h2 id="tradeTitle">Market</h2>
+            <h2 id="tradeTitle">Bet</h2>
           </div>
           <button type="button" class="icon-button" data-close-dialog="tradeDialog" aria-label="Close trade dialog">x</button>
         </div>
@@ -586,10 +594,10 @@
       <form method="dialog" class="dialog-card market-detail-card">
         <div class="dialog-header">
           <div>
-            <p class="eyebrow" id="detailCategory">Market</p>
-            <h2 id="detailTitle">Market</h2>
+            <p class="eyebrow" id="detailCategory">Bet</p>
+            <h2 id="detailTitle">Bet</h2>
           </div>
-          <button type="button" class="icon-button" data-close-dialog="marketDetailDialog" aria-label="Close market detail">x</button>
+          <button type="button" class="icon-button" data-close-dialog="marketDetailDialog" aria-label="Close bet detail">x</button>
         </div>
         <div class="detail-meta">
           <div class="probability">
