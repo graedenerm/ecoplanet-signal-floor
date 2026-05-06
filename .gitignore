@@ -6,3 +6,7 @@ node_modules/
 .next/
 dist/
 .vercel/
+
+# Local-only orientation/reference for Claude Code; not for the public repo.
+CLAUDE.md
+docs/
