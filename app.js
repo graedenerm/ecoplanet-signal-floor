@@ -601,6 +601,7 @@ const MARKET_SUGGESTIONS = [
 
 const state = migrateState(loadState());
 let tradeIntent = null;
+let pendingRumorConversion = null;
 let idleTimer = null;
 let bonusSpinLocked = false;
 let supabaseClient = null;
@@ -1774,6 +1775,7 @@ async function loadRumors() {
     id: r.id,
     body: r.body,
     createdAt: new Date(r.created_at).getTime(),
+    marketId: r.market_id || null,
   }));
 }
 
@@ -1817,16 +1819,19 @@ function renderRumors() {
     return;
   }
   list.innerHTML = state.rumors
-    .map(
-      (rumor) => `
+    .map((rumor) => {
+      const action = rumor.marketId
+        ? `<button type="button" class="ghost rumor-action" data-jump-market="${rumor.marketId}">View bet &rarr;</button>`
+        : `<button type="button" class="ghost rumor-action" data-rumor-id="${rumor.id}">Make this a bet</button>`;
+      return `
         <div class="rumor">
           <p>${esc(rumor.body)}</p>
           <div class="rumor-meta">
             <span class="muted">${timeAgo(rumor.createdAt)}</span>
-            <button type="button" class="ghost rumor-action" data-rumor-id="${rumor.id}">Make this a bet</button>
+            ${action}
           </div>
-        </div>`
-    )
+        </div>`;
+    })
     .join("");
 }
 
@@ -2126,16 +2131,20 @@ async function resolveMarket(marketId, result) {
 async function createMarket({ title, criteria, category, closeDate, initialProbability, liquidity }) {
   const p = clamp(initialProbability / 100, 0.05, 0.95);
   if (supabaseMode && supabaseClient) {
-    const { error } = await supabaseClient.from("markets").insert({
-      title,
-      criteria,
-      category,
-      close_at: new Date(`${closeDate}T18:00:00`).toISOString(),
-      creator_id: state.currentUserId,
-      yes_pool: liquidity * p,
-      no_pool: liquidity * (1 - p),
-      volume: 0,
-    });
+    const { data: inserted, error } = await supabaseClient
+      .from("markets")
+      .insert({
+        title,
+        criteria,
+        category,
+        close_at: new Date(`${closeDate}T18:00:00`).toISOString(),
+        creator_id: state.currentUserId,
+        yes_pool: liquidity * p,
+        no_pool: liquidity * (1 - p),
+        volume: 0,
+      })
+      .select("id")
+      .single();
     if (error) {
       toast(`Bet failed: ${error.message}`);
       return false;
@@ -2143,11 +2152,21 @@ async function createMarket({ title, criteria, category, closeDate, initialProba
     const user = currentUser();
     addXp(user, 35, "market created");
     awardBadges(user);
+    if (pendingRumorConversion && inserted?.id) {
+      const rumorId = pendingRumorConversion;
+      pendingRumorConversion = null;
+      const { error: linkErr } = await supabaseClient.rpc("link_rumor_to_market", {
+        p_rumor_id: rumorId,
+        p_market_id: inserted.id,
+      });
+      if (linkErr) console.warn("Failed to link rumor to market:", linkErr);
+      else await loadRumors();
+    }
     await refreshSupabaseData();
     pulseSpark();
     launchMarketConfetti();
     toast("Bet launched.");
-    return true;
+    return { id: inserted?.id };
   }
 
   state.markets.unshift({
@@ -2575,6 +2594,7 @@ function bindEvents() {
   $("#tutorialCreateBtn").addEventListener("click", () => openCreateDialog());
 
   $("#openCreateBtn").addEventListener("click", () => openCreateDialog());
+  $("#createFab")?.addEventListener("click", () => openCreateDialog());
   $("#openAuthBtn").addEventListener("click", () => {
     renderAuthDialog();
     $("#authDialog").showModal();
@@ -2690,9 +2710,10 @@ function bindEvents() {
       const rumor = state.rumors?.find((r) => r.id === rumorAction.dataset.rumorId);
       if (rumor) {
         const title = questionFromText(rumor.body);
+        openCreateDialog();
         $("#marketTitleInput").value = title.slice(0, 220);
         $("#marketCriteriaInput").value = `Based on the rumor: "${rumor.body}". YES if confirmed by an official company source or visible outcome within 30 days.`;
-        openCreateDialog();
+        pendingRumorConversion = rumor.id;
       }
     }
 
@@ -2819,6 +2840,7 @@ function activateView(view) {
 }
 
 function openCreateDialog() {
+  pendingRumorConversion = null;
   $("#marketCloseInput").value = todayISO(14);
   $("#marketDialog").showModal();
 }

@@ -24,7 +24,7 @@
           <button class="ghost hidden" id="signOutBtn">Sign out</button>
           <button class="ghost" id="newPersonaBtn" title="Create another anonymous profile">New persona</button>
           <button class="ghost" id="howItWorksBtn">How it works</button>
-          <button class="primary" id="openCreateBtn">Create bet</button>
+          <button class="primary primary-cta" id="openCreateBtn">+ Create a bet</button>
         </div>
       </header>
 
@@ -473,18 +473,20 @@
         <label>
           Username
           <input id="authUsernameInput" autocomplete="username" required placeholder="e.g. rumor_queen" />
+          <small class="muted hint signup-only">Your private login. Only you ever see it.</small>
         </label>
         <label class="signup-only">
-          Display name
-          <input id="authDisplayNameInput" autocomplete="nickname" placeholder="Pick your public desk name" />
+          Display name <span class="muted">(optional)</span>
+          <input id="authDisplayNameInput" autocomplete="nickname" placeholder="Leave blank to use your username" />
+          <small class="muted hint">What colleagues see on the leaderboard and Pulse feed.</small>
         </label>
         <label>
           Password
           <input id="authPasswordInput" type="password" autocomplete="current-password" required placeholder="At least 6 characters" />
         </label>
         <div class="avatar-picker signup-only" id="avatarPicker" aria-label="Avatar picker"></div>
-        <p class="muted auth-note">
-          No email needed. Pick a username, password, and avatar.
+        <p class="muted auth-note signup-only">
+          No email needed. Username and password are the only required fields &mdash; display name and avatar are optional.
         </p>
         <div class="dialog-actions">
           <button type="button" data-close-dialog="authDialog" class="ghost">Cancel</button>
@@ -638,6 +640,10 @@
         </div>
       </form>
     </dialog>
+
+    <button type="button" class="create-fab" id="createFab" aria-label="Create a new bet">
+      <span aria-hidden="true">+</span> Create a bet
+    </button>
 
     <div id="toast" class="toast" role="status"></div>
     <script src="./config.js"></script>
