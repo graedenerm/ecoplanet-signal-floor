@@ -5,6 +5,7 @@
   "description": "Internal play-money prediction market for ecoplanet.",
   "scripts": {
     "build": "node scripts/build-config.cjs",
+    "dev": "npm run build && npx vercel dev",
     "check": "node --check app.js && node --check api/signup.js",
     "smoke": "node scripts/smoke-test.cjs",
     "smoke:slot": "node scripts/slot-smoke-test.cjs"
