@@ -13,6 +13,10 @@
 alter table public.rumors
   add column if not exists market_id uuid references public.markets(id) on delete set null;
 
+-- Return type changed (added market_id), so the old function must be dropped
+-- before recreating. CREATE OR REPLACE cannot alter return-type signatures.
+drop function if exists public.public_rumors(int);
+
 create or replace function public.public_rumors(p_limit int default 50)
 returns table (
   id         uuid,
