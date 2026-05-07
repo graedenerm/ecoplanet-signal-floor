@@ -1915,3 +1915,117 @@ body[data-active-view="overview"] .create-fab {
   line-height: 1.4;
 }
 
+#marketDialog[data-bet-type="binary"] .multi-only,
+#marketDialog[data-bet-type="multiple"] .binary-only {
+  display: none;
+}
+
+#marketOptionsInput {
+  font-family: inherit;
+  resize: vertical;
+}
+
+.option-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--soft, #1f2541);
+  margin-bottom: 8px;
+}
+
+.option-row .option-label {
+  flex: 1;
+  font-weight: 700;
+}
+
+.option-row .option-pct {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted, #8a93ac);
+  min-width: 56px;
+  text-align: right;
+}
+
+.option-row .option-bar {
+  flex: 2;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.option-row .option-bar > div {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-3));
+}
+
+.option-row .option-buy {
+  border-radius: 8px;
+  padding: 6px 12px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.option-row .option-buy:hover {
+  filter: brightness(1.1);
+}
+
+.option-row .option-buy:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.market-options-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.market-options-preview .option-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(108, 124, 255, 0.12);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.market-options-preview .option-chip.leader {
+  background: rgba(108, 124, 255, 0.32);
+}
+
+.market-options-preview .option-chip .pct {
+  color: var(--muted, #8a93ac);
+  font-variant-numeric: tabular-nums;
+}
+
+.multi-trade-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 12px 0;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.multi-trade-options .option-row {
+  cursor: pointer;
+  border: 2px solid transparent;
+  margin-bottom: 0;
+}
+
+.multi-trade-options .option-row.selected {
+  border-color: var(--accent);
+}
+
+.multi-trade-options .option-row .option-buy {
+  display: none;
+}
+

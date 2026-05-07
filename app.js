@@ -601,6 +601,7 @@ const MARKET_SUGGESTIONS = [
 
 const state = migrateState(loadState());
 let tradeIntent = null;
+let multiTradeIntent = null;
 let pendingRumorConversion = null;
 let idleTimer = null;
 let bonusSpinLocked = false;
@@ -791,6 +792,8 @@ function isSupabaseSignedIn() {
 }
 
 function remoteMarketToLocal(market) {
+  const marketType = market.market_type === "multiple" ? "multiple" : "binary";
+  const rawOptions = Array.isArray(market.options) ? market.options : [];
   return {
     id: market.id,
     title: market.title,
@@ -798,6 +801,13 @@ function remoteMarketToLocal(market) {
     category: market.category,
     yesPool: Number(market.yes_pool),
     noPool: Number(market.no_pool),
+    marketType,
+    options: rawOptions.map((opt) => ({
+      id: String(opt.id),
+      label: String(opt.label),
+      pool: Number(opt.pool || 0),
+    })),
+    winningOptionId: market.winning_option_id || null,
     createdAt: new Date(market.created_at).getTime(),
     closeDate: market.close_at.slice(0, 10),
     status: market.status === "open" ? "open" : "resolved",
@@ -948,10 +958,12 @@ async function loadUserPositionsAndTrades(userId) {
   ]);
   const nextPositions = {};
   (positions || []).forEach((p) => {
-    nextPositions[positionKey(p.user_id, p.market_id, p.side)] = {
+    const optionId = p.option_id || "";
+    nextPositions[positionKey(p.user_id, p.market_id, p.side, optionId)] = {
       userId: p.user_id,
       marketId: p.market_id,
       side: p.side,
+      optionId,
       shares: Number(p.shares),
       cost: Number(p.cost),
     };
@@ -962,6 +974,7 @@ async function loadUserPositionsAndTrades(userId) {
     userId: t.user_id,
     marketId: t.market_id,
     side: t.side,
+    optionId: t.option_id || "",
     amount: Number(t.amount),
     shares: Number(t.shares),
     price: Number(t.price),
@@ -1033,6 +1046,9 @@ function ensureUserShape(user) {
 }
 
 function probability(market) {
+  if ((market.marketType || "binary") === "multiple") {
+    return leaderProbability(market);
+  }
   return clamp(market.yesPool / (market.yesPool + market.noPool), 0.03, 0.97);
 }
 
@@ -1041,16 +1057,41 @@ function sidePrice(market, side) {
   return side === "yes" ? yes : 1 - yes;
 }
 
-function positionKey(userId, marketId, side) {
-  return `${userId}:${marketId}:${side}`;
+function totalOptionPool(market) {
+  return (market.options || []).reduce((sum, opt) => sum + Number(opt.pool || 0), 0);
 }
 
-function getPosition(userId, marketId, side) {
-  return state.positions[positionKey(userId, marketId, side)] || { userId, marketId, side, shares: 0, cost: 0 };
+function optionProbability(market, optionId) {
+  const total = totalOptionPool(market);
+  if (total <= 0) return 0;
+  const opt = (market.options || []).find((o) => o.id === optionId);
+  if (!opt) return 0;
+  return clamp(Number(opt.pool || 0) / total, 0.02, 0.98);
+}
+
+function leaderOption(market) {
+  return (market.options || []).slice().sort((a, b) => Number(b.pool || 0) - Number(a.pool || 0))[0] || null;
+}
+
+function leaderProbability(market) {
+  const leader = leaderOption(market);
+  if (!leader) return 0;
+  return optionProbability(market, leader.id);
+}
+
+function positionKey(userId, marketId, side, optionId = "") {
+  return optionId ? `${userId}:${marketId}:${side}:${optionId}` : `${userId}:${marketId}:${side}`;
+}
+
+function getPosition(userId, marketId, side, optionId = "") {
+  return (
+    state.positions[positionKey(userId, marketId, side, optionId)] ||
+    { userId, marketId, side, optionId, shares: 0, cost: 0 }
+  );
 }
 
 function setPosition(position) {
-  state.positions[positionKey(position.userId, position.marketId, position.side)] = position;
+  state.positions[positionKey(position.userId, position.marketId, position.side, position.optionId || "")] = position;
 }
 
 function openPositions(userId) {
@@ -1061,6 +1102,10 @@ function portfolioValue(userId) {
   return openPositions(userId).reduce((sum, pos) => {
     const market = state.markets.find((item) => item.id === pos.marketId);
     if (!market || market.status !== "open") return sum;
+    if ((market.marketType || "binary") === "multiple") {
+      const price = optionProbability(market, pos.optionId);
+      return sum + pos.shares * price;
+    }
     return sum + pos.shares * sidePrice(market, pos.side);
   }, 0);
 }
@@ -1444,12 +1489,11 @@ function renderSuggestions() {
 function renderSuggestionCard(suggestion) {
   const isMultiple = Boolean(suggestion.options?.length);
   const typeLabel = suggestion.type === "spicy" ? "HR spicy" : isMultiple ? "multiple choice" : "yes/no";
-  const options = isMultiple
-    ? `<div class="option-grid">
-        ${suggestion.options
-          .map((option) => `<button data-suggestion-option="${suggestion.id}" data-option="${esc(option)}">${esc(option)}</button>`)
-          .join("")}
-      </div>`
+  const optionsBlock = isMultiple
+    ? `<div class="market-options-preview">
+        ${suggestion.options.map((opt) => `<span class="option-chip">${esc(opt)}</span>`).join("")}
+      </div>
+      <button class="primary" data-suggestion="${suggestion.id}">Launch multi-choice bet</button>`
     : `<button class="primary" data-suggestion="${suggestion.id}">Launch bet</button>`;
   return `
     <article class="suggestion-card ${suggestion.type === "spicy" ? "spicy" : ""}">
@@ -1462,12 +1506,77 @@ function renderSuggestionCard(suggestion) {
       <h3>${esc(suggestion.title)}</h3>
       <p>${esc(suggestion.criteria)}</p>
       ${suggestion.type === "spicy" ? `<p class="spicy-note">HR spicy lane. Names are treated as anonymized in-game handles from the seed file; confirm the resolution source before publishing.</p>` : ""}
-      ${options}
+      ${optionsBlock}
+    </article>
+  `;
+}
+
+function renderMultiMarketCard(market) {
+  const closed = market.status !== "open";
+  const total = totalOptionPool(market) || 1;
+  const sorted = (market.options || []).slice().sort((a, b) => Number(b.pool || 0) - Number(a.pool || 0));
+  const leader = sorted[0];
+  const leaderPct = leader ? clamp(Number(leader.pool || 0) / total, 0, 1) : 0;
+  const winning = market.winningOptionId;
+
+  const myPositions = (market.options || [])
+    .map((opt) => ({ opt, pos: getPosition(state.currentUserId, market.id, "yes", opt.id) }))
+    .filter(({ pos }) => pos.cost > 0.01);
+  const positionTag = myPositions.length
+    ? `<span class="tag good">You bet ${myPositions
+        .map(({ opt, pos }) => `${esc(opt.label)} ${money(pos.cost)}`)
+        .join(" + ")}</span>`
+    : "";
+
+  const optionChips = sorted
+    .map((opt) => {
+      const optPct = clamp(Number(opt.pool || 0) / total, 0, 1);
+      const isWinner = winning && winning === opt.id;
+      const isLeader = !winning && leader && opt.id === leader.id;
+      const cls = `option-chip${isWinner || isLeader ? " leader" : ""}`;
+      const tag = isWinner ? " (winner)" : "";
+      return `<span class="${cls}">${esc(opt.label)}${tag} <span class="pct">${pct(optPct)}</span></span>`;
+    })
+    .join("");
+
+  const tradeButton = closed
+    ? ""
+    : `<button class="primary" data-trade-multi="${market.id}">Trade options</button>`;
+
+  return `
+    <article class="market-card">
+      <div class="market-top">
+        <div>
+          <h3 class="market-title">${esc(market.title)}</h3>
+          <div class="tag-row">
+            <span class="tag">${esc(market.category)}</span>
+            <span class="tag hot">${money(market.volume)} volume</span>
+            <span class="tag">${(market.options || []).length} options</span>
+            ${closed ? `<span class="tag">${winning ? "resolved" : esc(market.resolution || "closed")}</span>` : ""}
+          </div>
+        </div>
+        <div class="probability">
+          <strong>${leader ? pct(leaderPct) : "—"}</strong>
+          <span class="muted">${leader ? esc(leader.label) : "leader"}</span>
+        </div>
+      </div>
+      <div class="market-options-preview">${optionChips}</div>
+      <p class="muted">${esc(market.criteria)}</p>
+      <div class="tag-row">
+        <span class="tag">Closes ${market.closeDate}</span>
+        ${positionTag}
+      </div>
+      <div class="card-actions">
+        ${tradeButton}
+      </div>
     </article>
   `;
 }
 
 function renderMarketCard(market) {
+  if ((market.marketType || "binary") === "multiple") {
+    return renderMultiMarketCard(market);
+  }
   const p = probability(market);
   const move = marketMove(market);
   const closed = market.status !== "open";
@@ -1721,7 +1830,9 @@ async function loadActivity() {
     avatar: row.avatar_seed || "?",
     marketId: row.market_id,
     marketTitle: row.market_title,
+    marketType: row.market_type === "multiple" ? "multiple" : "binary",
     side: row.side,
+    optionId: row.option_id || "",
     amount: Number(row.amount),
     shares: Number(row.shares),
     price: Number(row.price),
@@ -1743,11 +1854,18 @@ function renderActivityFeed() {
   list.innerHTML = state.activity
     .map((trade) => {
       const isYou = trade.userId === state.currentUserId;
-      const sideTag =
-        trade.side === "yes"
+      const youBadge = isYou ? ` <span class="tag good">you</span>` : "";
+      let sideTag;
+      if (trade.marketType === "multiple") {
+        const market = state.markets.find((m) => m.id === trade.marketId);
+        const option = market?.options?.find((o) => o.id === trade.optionId);
+        const label = option?.label || "option";
+        sideTag = `<span class="delta">+${money(trade.amount)} ${esc(label)}</span>`;
+      } else {
+        sideTag = trade.side === "yes"
           ? `<span class="delta">+${money(trade.amount)} YES</span>`
           : `<span class="delta down">${money(trade.amount)} NO</span>`;
-      const youBadge = isYou ? ` <span class="tag good">you</span>` : "";
+      }
       return `
         <div class="movement" role="button" tabindex="0" data-jump-market="${trade.marketId}" style="cursor:pointer;">
           <div>
@@ -1856,15 +1974,19 @@ function renderCompactList() {
       const closeMs = new Date(`${m.closeDate}T18:00:00`).getTime();
       const daysLeft = Math.max(0, Math.ceil((closeMs - Date.now()) / 86400000));
       const closeLabel = daysLeft === 0 ? "today" : daysLeft === 1 ? "tomorrow" : `${daysLeft}d`;
-      const yesPos = getPosition(state.currentUserId, m.id, "yes");
-      const noPos = getPosition(state.currentUserId, m.id, "no");
-      const totalBet = yesPos.cost + noPos.cost;
+      const isMulti = (m.marketType || "binary") === "multiple";
+      const totalBet = Object.values(state.positions)
+        .filter((p) => p.userId === state.currentUserId && p.marketId === m.id)
+        .reduce((sum, p) => sum + Number(p.cost || 0), 0);
       const youTag = totalBet > 0.01 ? ` · <span class="delta">you bet ${money(totalBet)}</span>` : "";
+      const probLabel = isMulti
+        ? `${pct(leaderProbability(m))} ${esc(leaderOption(m)?.label || "leader")}`
+        : `${pct(probability(m))} YES`;
       return `
         <div class="movement" role="button" tabindex="0" data-market-detail="${m.id}" style="cursor:pointer;">
           <div>
             <strong>${esc(m.title)}</strong>
-            <span class="muted">${pct(probability(m))} YES · ${esc(m.category)} · closes ${closeLabel}${youTag}</span>
+            <span class="muted">${probLabel} · ${esc(m.category)} · closes ${closeLabel}${youTag}</span>
           </div>
           <span class="delta">→</span>
         </div>`;
@@ -1877,6 +1999,10 @@ let currentDetailMarketId = null;
 function showMarketDetail(marketId) {
   const market = state.markets.find((m) => m.id === marketId);
   if (!market) return;
+  if ((market.marketType || "binary") === "multiple" && market.status === "open") {
+    openMultiTradeDialog(marketId);
+    return;
+  }
   currentDetailMarketId = marketId;
   $("#detailTitle").textContent = market.title;
   $("#detailCategory").textContent = `${market.category} bet`;
@@ -1925,9 +2051,16 @@ function renderPositions() {
   $("#positionsList").innerHTML = positions
     .map((pos) => {
       const market = state.markets.find((item) => item.id === pos.marketId);
-      const value = market && market.status === "open" ? pos.shares * sidePrice(market, pos.side) : 0;
+      const isMulti = market && (market.marketType || "binary") === "multiple";
+      const optLabel = isMulti
+        ? market.options?.find((o) => o.id === pos.optionId)?.label || "option"
+        : pos.side.toUpperCase();
+      const price = market && market.status === "open"
+        ? (isMulti ? optionProbability(market, pos.optionId) : sidePrice(market, pos.side))
+        : 0;
+      const value = market && market.status === "open" ? pos.shares * price : 0;
       const pnl = value - pos.cost;
-      const sideClass = pos.side === "yes" ? "good" : "bad";
+      const sideClass = isMulti ? "good" : pos.side === "yes" ? "good" : "bad";
       const valueLine = market && market.status === "open"
         ? `Bet ${money(pos.cost)} · worth ${money(value)} now`
         : `Bet ${money(pos.cost)} · awaiting resolution`;
@@ -1937,7 +2070,7 @@ function renderPositions() {
             <div>
               <strong>${esc(market?.title || "Bet")}</strong>
               <div class="muted">
-                <span class="tag ${sideClass}">${pos.side.toUpperCase()}</span>
+                <span class="tag ${sideClass}">${esc(optLabel)}</span>
                 ${valueLine}
               </div>
             </div>
@@ -1982,28 +2115,60 @@ function renderAdmin() {
       : "";
 
   const marketList = state.markets
-    .map(
-      (market) => `
+    .map((market) => {
+      const isMulti = (market.marketType || "binary") === "multiple";
+      let summary;
+      if (market.status === "open") {
+        summary = isMulti
+          ? `${(market.options || []).length} options, leader ${esc(leaderOption(market)?.label || "—")} ${pct(leaderProbability(market))}, closes ${market.closeDate}`
+          : `${pct(probability(market))} YES, closes ${market.closeDate}`;
+      } else {
+        const winner = isMulti && market.winningOptionId
+          ? (market.options || []).find((o) => o.id === market.winningOptionId)?.label
+          : null;
+        summary = isMulti && winner
+          ? `Resolved · winner: ${esc(winner)}`
+          : `Resolved ${market.resolution}`;
+      }
+
+      let actions = "";
+      if (market.status === "open") {
+        if (isMulti) {
+          const optionButtons = (market.options || [])
+            .map(
+              (opt) =>
+                `<button class="yes-btn" data-resolve-multi="${market.id}" data-option-id="${esc(opt.id)}">Winner: ${esc(opt.label)}</button>`
+            )
+            .join("");
+          actions = `
+            <div class="resolve-actions">
+              ${optionButtons}
+              <button class="ghost" data-resolve-multi-void="${market.id}">Void</button>
+            </div>
+          `;
+        } else {
+          actions = `
+            <div class="resolve-actions">
+              <button class="yes-btn" data-resolve="${market.id}" data-result="yes">Resolve YES</button>
+              <button class="no-btn" data-resolve="${market.id}" data-result="no">Resolve NO</button>
+              <button class="ghost" data-resolve="${market.id}" data-result="void">Void</button>
+            </div>
+          `;
+        }
+      }
+
+      return `
       <div class="admin-item">
         <div class="admin-row">
           <div>
             <strong>${esc(market.title)}</strong>
-            <div class="muted">${market.status === "open" ? `${pct(probability(market))} YES, closes ${market.closeDate}` : `Resolved ${market.resolution}`}</div>
+            <div class="muted">${summary}</div>
           </div>
           <span class="tag">${market.category}</span>
         </div>
-        ${
-          market.status === "open"
-            ? `<div class="resolve-actions">
-                <button class="yes-btn" data-resolve="${market.id}" data-result="yes">Resolve YES</button>
-                <button class="no-btn" data-resolve="${market.id}" data-result="no">Resolve NO</button>
-                <button class="ghost" data-resolve="${market.id}" data-result="void">Void</button>
-              </div>`
-            : ""
-        }
-      </div>
-    `
-    )
+        ${actions}
+      </div>`;
+    })
     .join("");
 
   const visibleSuggestions = filteredSuggestions();
@@ -2087,6 +2252,88 @@ async function placeTrade(marketId, side, amount) {
   return true;
 }
 
+async function placeOptionTrade(marketId, optionId, amount) {
+  const market = state.markets.find((m) => m.id === marketId);
+  const user = currentUser();
+  if (!market || market.status !== "open") {
+    toast("Bet is closed.");
+    return false;
+  }
+  if ((market.marketType || "binary") !== "multiple") {
+    toast("Not a multi-choice market.");
+    return false;
+  }
+  if (amount <= 0 || amount > user.wallet) {
+    toast("Not enough credits for that trade.");
+    return false;
+  }
+  const option = (market.options || []).find((o) => o.id === optionId);
+  if (!option) {
+    toast("Option not found.");
+    return false;
+  }
+
+  if (supabaseMode && supabaseClient) {
+    const { error } = await supabaseClient.rpc("place_option_trade", {
+      p_market_id: marketId,
+      p_option_id: optionId,
+      p_amount: amount,
+    });
+    if (error) {
+      toast(`Trade failed: ${error.message}`);
+      return false;
+    }
+    addXp(user, Math.min(45, 15 + Math.round(amount / 20)), "trade placed");
+    awardBadges(user);
+    await refreshSupabaseData();
+    pulseSpark();
+    toast(`Trade placed: ${money(amount)} on ${option.label}.`);
+    return true;
+  }
+
+  const total = totalOptionPool(market) || 1;
+  const price = clamp(Number(option.pool || 0) / total, 0.02, 0.98);
+  const shares = amount / price;
+  user.wallet -= amount;
+  user.ledger.push({ at: Date.now(), amount: -amount, reason: `Bought "${option.label}" on ${market.title}` });
+  option.pool = Number(option.pool || 0) + amount;
+  market.volume += amount;
+  const newTotal = total + amount;
+  market.history = market.history || [];
+  for (const opt of market.options) {
+    market.history.push({
+      at: Date.now(),
+      probability: clamp(Number(opt.pool || 0) / newTotal, 0.02, 0.98),
+      optionId: opt.id,
+    });
+  }
+
+  const pos = getPosition(user.id, marketId, "yes", optionId);
+  pos.shares += shares;
+  pos.cost += amount;
+  pos.optionId = optionId;
+  setPosition(pos);
+
+  state.trades.push({
+    id: uid("trade"),
+    userId: user.id,
+    marketId,
+    side: "yes",
+    optionId,
+    amount,
+    shares,
+    price,
+    at: Date.now(),
+  });
+  addXp(user, Math.min(45, 15 + Math.round(amount / 20)), "trade placed");
+  awardBadges(user);
+  save();
+  render();
+  pulseSpark();
+  toast(`Trade placed: ${money(amount)} on ${option.label}.`);
+  return true;
+}
+
 async function resolveMarket(marketId, result) {
   const market = state.markets.find((item) => item.id === marketId);
   if (!market || market.status !== "open") return;
@@ -2128,21 +2375,93 @@ async function resolveMarket(marketId, result) {
   toast(result === "void" ? "Market voided and stakes returned." : `Resolved ${result.toUpperCase()}. Payouts posted.`);
 }
 
-async function createMarket({ title, criteria, category, closeDate, initialProbability, liquidity }) {
-  const p = clamp(initialProbability / 100, 0.05, 0.95);
+async function resolveMultiMarket(marketId, winningOptionId, voidIt = false) {
+  const market = state.markets.find((m) => m.id === marketId);
+  if (!market || market.status !== "open") return;
+  if ((market.marketType || "binary") !== "multiple") return;
+
+  const winningOption = winningOptionId
+    ? (market.options || []).find((o) => o.id === winningOptionId)
+    : null;
+  const actionText = voidIt
+    ? `void "${market.title}" and refund all stakes`
+    : `resolve "${market.title}" with winner: ${winningOption?.label}`;
+  if (!confirm(`Are you sure you want to ${actionText}? This cannot be undone.`)) return;
+
   if (supabaseMode && supabaseClient) {
+    const { error } = await supabaseClient.rpc("resolve_multi_market", {
+      p_market_id: marketId,
+      p_winning_option_id: winningOptionId || "",
+      p_void: Boolean(voidIt),
+    });
+    if (error) return toast(`Resolve failed: ${error.message}`);
+    await refreshSupabaseData();
+    toast(voidIt ? "Bet voided and stakes returned." : `Resolved. Winner: ${winningOption?.label}.`);
+    return;
+  }
+
+  market.status = voidIt ? "void" : "resolved";
+  market.resolution = voidIt ? "void" : "yes";
+  market.winningOptionId = voidIt ? null : winningOptionId;
+
+  Object.values(state.positions)
+    .filter((pos) => pos.marketId === marketId && pos.shares > 0)
+    .forEach((pos) => {
+      const user = state.users.find((u) => u.id === pos.userId);
+      if (!user) return;
+      let payout = 0;
+      if (voidIt) payout = pos.cost;
+      else if (pos.optionId === winningOptionId) payout = pos.shares;
+      if (payout > 0) {
+        user.wallet += payout;
+        user.ledger.push({ at: Date.now(), amount: payout, reason: `Payout: ${market.title}` });
+      }
+      pos.shares = 0;
+    });
+
+  save();
+  render();
+  toast(voidIt ? "Market voided and stakes returned." : `Resolved. Winner: ${winningOption?.label}.`);
+}
+
+async function createMarket({ title, criteria, category, closeDate, initialProbability, liquidity, marketType, options }) {
+  const type = marketType === "multiple" ? "multiple" : "binary";
+  const p = clamp((initialProbability || 50) / 100, 0.05, 0.95);
+
+  let optionPayload = null;
+  if (type === "multiple") {
+    const cleaned = (options || []).map((s) => String(s).trim()).filter(Boolean);
+    if (cleaned.length < 2 || cleaned.length > 8) {
+      toast("Multi-choice needs between 2 and 8 options.");
+      return false;
+    }
+    const poolPer = Math.max(50, Math.round(Number(liquidity || 1000) / cleaned.length));
+    optionPayload = cleaned.map((label) => ({
+      id: uid("opt"),
+      label: label.slice(0, 60),
+      pool: poolPer,
+    }));
+  }
+
+  if (supabaseMode && supabaseClient) {
+    const insertPayload = {
+      title,
+      criteria,
+      category,
+      close_at: new Date(`${closeDate}T18:00:00`).toISOString(),
+      creator_id: state.currentUserId,
+      volume: 0,
+    };
+    if (type === "multiple") {
+      insertPayload.market_type = "multiple";
+      insertPayload.options = optionPayload;
+    } else {
+      insertPayload.yes_pool = liquidity * p;
+      insertPayload.no_pool = liquidity * (1 - p);
+    }
     const { data: inserted, error } = await supabaseClient
       .from("markets")
-      .insert({
-        title,
-        criteria,
-        category,
-        close_at: new Date(`${closeDate}T18:00:00`).toISOString(),
-        creator_id: state.currentUserId,
-        yes_pool: liquidity * p,
-        no_pool: liquidity * (1 - p),
-        volume: 0,
-      })
+      .insert(insertPayload)
       .select("id")
       .single();
     if (error) {
@@ -2169,21 +2488,32 @@ async function createMarket({ title, criteria, category, closeDate, initialProba
     return { id: inserted?.id };
   }
 
-  state.markets.unshift({
+  const localMarket = {
     id: uid("market"),
     title,
     criteria,
     category,
-    yesPool: liquidity * p,
-    noPool: liquidity * (1 - p),
+    marketType: type,
+    options: optionPayload || [],
+    winningOptionId: null,
+    yesPool: type === "multiple" ? 1 : liquidity * p,
+    noPool: type === "multiple" ? 1 : liquidity * (1 - p),
     createdAt: Date.now(),
     closeDate,
     status: "open",
     resolution: null,
     volume: 0,
     creatorId: state.currentUserId,
-    history: [{ at: Date.now(), probability: p }],
-  });
+    history:
+      type === "multiple"
+        ? (optionPayload || []).map((opt) => ({
+            at: Date.now(),
+            probability: 1 / optionPayload.length,
+            optionId: opt.id,
+          }))
+        : [{ at: Date.now(), probability: p }],
+  };
+  state.markets.unshift(localMarket);
   const user = currentUser();
   addXp(user, 35, "market created");
   awardBadges(user);
@@ -2192,7 +2522,7 @@ async function createMarket({ title, criteria, category, closeDate, initialProba
   pulseSpark();
   launchMarketConfetti();
   toast("Market launched.");
-  return true;
+  return { id: localMarket.id };
 }
 
 function newPersona() {
@@ -2254,22 +2584,22 @@ function daysUntil(dateString) {
   return Math.max(1, Math.ceil(diff / 86400000));
 }
 
-async function launchSuggestion(id, option = null) {
+async function launchSuggestion(id) {
   const suggestion = MARKET_SUGGESTIONS.find((item) => item.id === id);
   if (!suggestion) return false;
-  const isOption = Boolean(suggestion.options?.length && option);
-  const title = isOption ? `Will "${option}" win: ${suggestion.title}?` : suggestion.title;
-  const prefix = suggestion.type === "spicy" ? "HR-approved spicy market. Names are anonymized in-game handles from the seed file. " : "";
-  const criteria = prefix + (isOption
-    ? `YES if "${option}" is the final winning outcome. ${suggestion.criteria}`
-    : suggestion.criteria);
+  const hasOptions = Array.isArray(suggestion.options) && suggestion.options.length >= 2;
+  const prefix = suggestion.type === "spicy"
+    ? "HR-approved spicy market. Names are anonymized in-game handles from the seed file. "
+    : "";
   const created = await createMarket({
-    title,
-    criteria,
+    title: suggestion.title,
+    criteria: prefix + suggestion.criteria,
     category: suggestion.category,
     closeDate: suggestion.resolves,
-    initialProbability: isOption ? Math.max(10, Math.round(100 / suggestion.options.length)) : 50,
-    liquidity: isOption ? 900 : 1200,
+    initialProbability: 50,
+    liquidity: 1200,
+    marketType: hasOptions ? "multiple" : "binary",
+    options: hasOptions ? suggestion.options : undefined,
   });
   if (created) activateView("markets");
   return created;
@@ -2278,11 +2608,7 @@ async function launchSuggestion(id, option = null) {
 async function launchTopSuggestions() {
   const top = MARKET_SUGGESTIONS.slice(0, 3);
   for (const suggestion of top) {
-    if (suggestion.type === "multiple") {
-      await launchSuggestion(suggestion.id, suggestion.options[0]);
-    } else {
-      await launchSuggestion(suggestion.id);
-    }
+    await launchSuggestion(suggestion.id);
   }
   toast("Top suggestions launched.");
 }
@@ -2627,6 +2953,13 @@ function bindEvents() {
     });
   });
 
+  $$("#marketDialog [data-bet-type]").forEach((btn) => {
+    btn.addEventListener("click", (event) => {
+      event.preventDefault();
+      setMarketDialogType(btn.dataset.betType);
+    });
+  });
+
   $("#saveMarketBtn").addEventListener("click", async (event) => {
     event.preventDefault();
     const title = $("#marketTitleInput").value.trim();
@@ -2635,10 +2968,13 @@ function bindEvents() {
     if (!title || !criteria || !closeDate) return toast("Question, criteria, and close date are required.");
     if (title.length < 10) return toast("Question needs at least 10 characters.");
     if (title.length > 220) return toast("Question is too long (max 220 characters).");
-    if (criteria.length < 20) return toast("Criteria needs at least 20 characters — describe how YES is decided.");
+    if (criteria.length < 20) return toast("Criteria needs at least 20 characters — describe how the bet is decided.");
     if (criteria.length > 1400) return toast("Criteria is too long (max 1400 characters).");
     const closeMs = new Date(`${closeDate}T18:00:00`).getTime();
     if (!Number.isFinite(closeMs) || closeMs <= Date.now()) return toast("Close date must be in the future.");
+    const marketType = $("#marketDialog").dataset.betType === "multiple" ? "multiple" : "binary";
+    const optionsText = $("#marketOptionsInput").value || "";
+    const options = optionsText.split("\n").map((s) => s.trim()).filter(Boolean);
     const created = await createMarket({
       title,
       criteria,
@@ -2646,11 +2982,14 @@ function bindEvents() {
       closeDate,
       initialProbability: Number($("#marketProbInput").value),
       liquidity: Number($("#marketLiquidityInput").value),
+      marketType,
+      options,
     });
     if (!created) return;
     $("#marketDialog").close();
     $("#marketTitleInput").value = "";
     $("#marketCriteriaInput").value = "";
+    $("#marketOptionsInput").value = "";
   });
 
   $("#newPersonaBtn").addEventListener("click", newPersona);
@@ -2728,6 +3067,27 @@ function bindEvents() {
       $("#tradeDialog").showModal();
     }
 
+    const tradeMultiButton = event.target.closest("[data-trade-multi]");
+    if (tradeMultiButton) {
+      openMultiTradeDialog(tradeMultiButton.dataset.tradeMulti);
+    }
+
+    const optionPick = event.target.closest("[data-multi-option]");
+    if (optionPick) {
+      multiTradeIntent = {
+        ...(multiTradeIntent || {}),
+        optionId: optionPick.dataset.multiOption,
+      };
+      renderMultiTradeOptions();
+      updateMultiTradePreview();
+    }
+
+    const multiStake = event.target.closest("[data-multi-stake]");
+    if (multiStake) {
+      $("#multiTradeAmountInput").value = multiStake.dataset.multiStake;
+      updateMultiTradePreview();
+    }
+
     const stake = event.target.closest("[data-stake]");
     if (stake) {
       $("#tradeAmountInput").value = stake.dataset.stake;
@@ -2736,6 +3096,16 @@ function bindEvents() {
 
     const resolveButton = event.target.closest("[data-resolve]");
     if (resolveButton) resolveMarket(resolveButton.dataset.resolve, resolveButton.dataset.result);
+
+    const resolveMultiButton = event.target.closest("[data-resolve-multi]");
+    if (resolveMultiButton) {
+      resolveMultiMarket(resolveMultiButton.dataset.resolveMulti, resolveMultiButton.dataset.optionId, false);
+    }
+
+    const resolveMultiVoidButton = event.target.closest("[data-resolve-multi-void]");
+    if (resolveMultiVoidButton) {
+      resolveMultiMarket(resolveMultiVoidButton.dataset.resolveMultiVoid, null, true);
+    }
 
     const suggestionButton = event.target.closest("[data-suggestion]");
     if (suggestionButton) launchSuggestion(suggestionButton.dataset.suggestion);
@@ -2776,6 +3146,20 @@ function bindEvents() {
     const placed = await placeTrade(tradeIntent.marketId, tradeIntent.side, Number($("#tradeAmountInput").value));
     if (!placed) return;
     $("#tradeDialog").close();
+  });
+
+  $("#multiTradeAmountInput")?.addEventListener("input", updateMultiTradePreview);
+  $("#confirmMultiTradeBtn")?.addEventListener("click", async (event) => {
+    event.preventDefault();
+    if (!multiTradeIntent || !multiTradeIntent.optionId) {
+      toast("Pick an option first.");
+      return;
+    }
+    const amount = Number($("#multiTradeAmountInput").value);
+    const placed = await placeOptionTrade(multiTradeIntent.marketId, multiTradeIntent.optionId, amount);
+    if (!placed) return;
+    $("#multiTradeDialog").close();
+    multiTradeIntent = null;
   });
 
   $("#howItWorksBtn").addEventListener("click", () => activateView("tutorial"));
@@ -2841,8 +3225,20 @@ function activateView(view) {
 
 function openCreateDialog() {
   pendingRumorConversion = null;
+  setMarketDialogType("binary");
+  $("#marketOptionsInput").value = "";
   $("#marketCloseInput").value = todayISO(14);
   $("#marketDialog").showModal();
+}
+
+function setMarketDialogType(type) {
+  const dialog = $("#marketDialog");
+  if (!dialog) return;
+  const next = type === "multiple" ? "multiple" : "binary";
+  dialog.dataset.betType = next;
+  $$("#marketDialog [data-bet-type]").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.betType === next);
+  });
 }
 
 function closeDialog(id) {
@@ -3005,6 +3401,65 @@ function updateTradePreview() {
   const price = sidePrice(market, tradeIntent.side);
   $("#tradePrice").textContent = pct(price);
   $("#tradeShares").textContent = (amount / clamp(price, 0.05, 0.95)).toFixed(2);
+}
+
+function openMultiTradeDialog(marketId) {
+  const market = state.markets.find((m) => m.id === marketId);
+  if (!market || (market.marketType || "binary") !== "multiple") return;
+  multiTradeIntent = { marketId, optionId: null };
+  $("#multiTradeTitle").textContent = market.title;
+  $("#multiTradeCriteria").textContent = market.criteria || "";
+  $("#multiTradeAmountInput").value = 50;
+  $("#multiTradeSelected").textContent = "—";
+  $("#multiTradeShares").textContent = "0";
+  $("#confirmMultiTradeBtn").disabled = true;
+  renderMultiTradeOptions();
+  $("#multiTradeDialog").showModal();
+}
+
+function renderMultiTradeOptions() {
+  if (!multiTradeIntent) return;
+  const container = $("#multiTradeOptions");
+  if (!container) return;
+  const market = state.markets.find((m) => m.id === multiTradeIntent.marketId);
+  if (!market) return;
+  const total = totalOptionPool(market) || 1;
+  const selectedId = multiTradeIntent.optionId;
+  container.innerHTML = (market.options || [])
+    .slice()
+    .sort((a, b) => Number(b.pool || 0) - Number(a.pool || 0))
+    .map((opt) => {
+      const optPct = clamp(Number(opt.pool || 0) / total, 0, 1);
+      const selected = opt.id === selectedId ? " selected" : "";
+      return `
+        <div class="option-row${selected}" data-multi-option="${esc(opt.id)}">
+          <span class="option-label">${esc(opt.label)}</span>
+          <span class="option-bar"><div style="width:${(optPct * 100).toFixed(1)}%"></div></span>
+          <span class="option-pct">${pct(optPct)}</span>
+        </div>`;
+    })
+    .join("");
+}
+
+function updateMultiTradePreview() {
+  if (!multiTradeIntent) return;
+  const market = state.markets.find((m) => m.id === multiTradeIntent.marketId);
+  if (!market) return;
+  const amount = Number($("#multiTradeAmountInput").value || 0);
+  const optionId = multiTradeIntent.optionId;
+  const option = (market.options || []).find((o) => o.id === optionId);
+  const confirmBtn = $("#confirmMultiTradeBtn");
+  if (!option) {
+    $("#multiTradeSelected").textContent = "—";
+    $("#multiTradeShares").textContent = "0";
+    if (confirmBtn) confirmBtn.disabled = true;
+    return;
+  }
+  const price = optionProbability(market, optionId);
+  const shares = price > 0 ? amount / clamp(price, 0.02, 0.98) : 0;
+  $("#multiTradeSelected").textContent = `${option.label} · ${pct(price)}`;
+  $("#multiTradeShares").textContent = shares.toFixed(2);
+  if (confirmBtn) confirmBtn.disabled = !(amount > 0 && optionId);
 }
 
 bindEvents();
